@@ -1,0 +1,113 @@
+{
+  "format": 1,
+  "restore": {
+    "D:\\src\\openai\\OpenAI\\OpenAI.csproj": {}
+  },
+  "projects": {
+    "D:\\src\\openai\\OpenAI\\OpenAI.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "D:\\src\\openai\\OpenAI\\OpenAI.csproj",
+        "projectName": "OpenAI",
+        "projectPath": "D:\\src\\openai\\OpenAI\\OpenAI.csproj",
+        "packagesPath": "C:\\Users\\tinyao\\.nuget\\packages\\",
+        "outputPath": "D:\\src\\openai\\OpenAI\\obj\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",
+          "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\tinyao\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net6.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Users\\tinyao\\Downloads\\LDATopic\\LDATopic": {},
+          "https://api.nuget.org/v3/index.json": {},
+          "https://msasg.pkgs.visualstudio.com/_packaging/Bing/nuget/v3/index.json": {},
+          "https://msasg.pkgs.visualstudio.com/_packaging/xap_publishing/nuget/v3/index.json": {},
+          "https://msasg.pkgs.visualstudio.com/_packaging/xap_services/nuget/v3/index.json": {},
+          "https://msasg.pkgs.visualstudio.com/_packaging/xap_services@SharedProd/nuget/v3/index.json": {},
+          "https://ooxml.blob.core.windows.net/feed/index.json": {}
+        },
+        "frameworks": {
+          "net6.0": {
+            "targetAlias": "net6.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.100"
+      },
+      "frameworks": {
+        "net6.0": {
+          "targetAlias": "net6.0",
+          "dependencies": {
+            "Aspose.Slides.NET": {
+              "target": "Package",
+              "version": "[24.10.0, )"
+            },
+            "Azure.AI.OpenAI": {
+              "target": "Package",
+              "version": "[1.0.0-beta.5, )"
+            },
+            "Azure.Identity": {
+              "target": "Package",
+              "version": "[1.12.0, )"
+            },
+            "DocumentFormat.OpenXml": {
+              "target": "Package",
+              "version": "[3.2.0, )"
+            },
+            "Microsoft.CognitiveServices.Speech": {
+              "target": "Package",
+              "version": "[1.40.0, )"
+            },
+            "Microsoft.Office.Interop.Excel": {
+              "target": "Package",
+              "version": "[15.0.4795.1001, )"
+            },
+            "Microsoft.Office.Interop.PowerPoint": {
+              "target": "Package",
+              "version": "[15.0.4420.1018, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            },
+            "Microsoft.WindowsDesktop.App.WindowsForms": {
+              "privateAssets": "none"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.102\\RuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}
