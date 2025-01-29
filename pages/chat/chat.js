@@ -18,7 +18,7 @@ Page({
     const course = app.globalData.selectedCourse;
     this.addMessage({
       type: 'ai',
-      content: `欢迎来到${course.name}课程，我是你的AI英语老师，让我们开始对话吧！`
+      content: `欢迎来到${course?.name || '基础英语会话'}课程，我是你的AI英语老师，让我们开始对话吧！`
     });
   },
 
@@ -84,12 +84,11 @@ Page({
     if (!this.data.inputText.trim()) return;
 
     console.log('开始发送文本消息:', this.data.inputText);
-    console.log('请求URL:', `${app.globalData.baseUrl}/api/chat`);
 
     // 显示加载提示
     wx.showLoading({ 
       title: '正在处理...',
-      mask: true  // 防止用户重复点击
+      mask: true
     });
 
     // 添加用户消息到界面
@@ -98,35 +97,32 @@ Page({
       content: this.data.inputText
     });
 
-    // 直接使用 request 发送文本消息
+    // 发送请求
+    const requestData = `text=${encodeURIComponent(this.data.inputText)}&needAudio=true`;
+    console.log('发送的数据:', requestData);
+    
     wx.request({
       url: `${app.globalData.baseUrl}/api/chat`,
       method: 'POST',
-      timeout: 30000,  // 30秒超时
+      timeout: 30000,
       header: {
         'content-type': 'application/x-www-form-urlencoded',
         'X-User-Id': app.globalData.userId || 'default-user'
       },
-      data: {
-        text: this.data.inputText,
-        needAudio: true  // 添加标志位，告诉服务器需要音频数据
-      },
+      data: requestData,
       success: (res) => {
         console.log('请求成功，状态码:', res.statusCode);
         
         if (res.statusCode === 200 && res.data) {
           try {
-            // 尝试解析响应数据
-            let responseData;
-            if (typeof res.data === 'string') {
-              responseData = JSON.parse(res.data);
-            } else {
-              responseData = res.data;
+            let responseData = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+            
+            if (responseData.error) {
+              this.handleError(responseData.message || '服务器返回错误');
+              return;
             }
             
             if (responseData.aiReply) {
-              console.log('收到AI回复:', responseData.aiReply);
-              // 添加AI回复到消息列表
               this.addMessage({
                 type: 'ai',
                 content: responseData.aiReply,
@@ -134,15 +130,11 @@ Page({
               });
               this.setData({ inputText: '' });
             } else {
-              this.handleError('服务器响应缺少AI回复');
+              this.handleError('服务器响应格式不正确');
             }
           } catch (error) {
             console.error('解析响应数据失败:', error);
-            // 如果解析失败，尝试直接使用响应数据
-            this.addMessage({
-              type: 'ai',
-              content: res.data
-            });
+            this.handleError('响应数据解析失败');
           }
         } else {
           this.handleError(`请求失败: ${res.statusCode}`);
@@ -150,21 +142,19 @@ Page({
       },
       fail: (error) => {
         console.error('请求失败详情:', error);
-        this.handleError(error.errMsg);
+          this.handleError(error.errMsg || '网络请求失败');
       },
       complete: () => {
-        console.log('请求完成');
-        wx.hideLoading();
+          wx.hideLoading();
       }
     });
   },
 
-  // 处理错误的辅助函数
   handleError: function(message) {
     console.error('错误:', message);
     wx.hideLoading();
     wx.showToast({
-      title: message,
+      title: typeof message === 'string' ? message : '发生错误',
       icon: 'none',
       duration: 2000
     });
@@ -304,31 +294,44 @@ Page({
    * @param {Object} message - 消息对象
    */
   addMessage: function(message) {
-    const messages = this.data.messages;
-    message.id = messages.length + 1;
-
-    // 如果消息内容是JSON字符串，尝试解析它
-    if (typeof message.content === 'string' && message.content.startsWith('{')) {
-      try {
-        const parsedContent = JSON.parse(message.content);
-        if (parsedContent.aiReply) {
-          message.content = parsedContent.aiReply;
-          message.audioData = parsedContent.audioData;
-        }
-      } catch (e) {
-        console.error('解析消息内容失败:', e);
-      }
+    if (!message) {
+      console.error('消息对象为空');
+      return;
     }
 
-    messages.push(message);
-    this.setData({
-      messages,
-      scrollToMessage: `msg-${message.id}`
-    });
+    try {
+      const messages = this.data.messages;
+      message.id = messages.length + 1;
 
-    // 如果是AI的回复，播放语音
-    if (message.type === 'ai' && message.audioData) {
-      this.playAIResponse(message.content, message.audioData);
+      // 如果消息内容是JSON字符串，尝试解析它
+      if (typeof message.content === 'string' && message.content.startsWith('{')) {
+        try {
+          const parsedContent = JSON.parse(message.content);
+          if (parsedContent.aiReply) {
+            message.content = parsedContent.aiReply;
+            message.audioData = parsedContent.audioData;
+          }
+        } catch (e) {
+          console.error('解析消息内容失败:', e);
+        }
+      }
+
+      messages.push(message);
+      this.setData({
+        messages,
+        scrollToMessage: `msg-${message.id}`
+      }, () => {
+        // 如果是AI的回复，播放语音
+        if (message.type === 'ai' && message.audioData) {
+          this.playAIResponse(message.content, message.audioData);
+        }
+      });
+    } catch (error) {
+      console.error('添加消息失败:', error);
+      wx.showToast({
+        title: '添加消息失败',
+        icon: 'none'
+      });
     }
   },
 
