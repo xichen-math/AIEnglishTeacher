@@ -108,24 +108,41 @@ Page({
         'X-User-Id': app.globalData.userId || 'default-user'
       },
       data: {
-        text: this.data.inputText
+        text: this.data.inputText,
+        needAudio: true  // 添加标志位，告诉服务器需要音频数据
       },
       success: (res) => {
         console.log('请求成功，状态码:', res.statusCode);
-        console.log('响应头:', res.header);
-        console.log('响应数据:', res.data);
         
         if (res.statusCode === 200 && res.data) {
-          if (res.data.aiReply) {
-            console.log('收到AI回复:', res.data.aiReply);
+          try {
+            // 尝试解析响应数据
+            let responseData;
+            if (typeof res.data === 'string') {
+              responseData = JSON.parse(res.data);
+            } else {
+              responseData = res.data;
+            }
+            
+            if (responseData.aiReply) {
+              console.log('收到AI回复:', responseData.aiReply);
+              // 添加AI回复到消息列表
+              this.addMessage({
+                type: 'ai',
+                content: responseData.aiReply,
+                audioData: responseData.audioData
+              });
+              this.setData({ inputText: '' });
+            } else {
+              this.handleError('服务器响应缺少AI回复');
+            }
+          } catch (error) {
+            console.error('解析响应数据失败:', error);
+            // 如果解析失败，尝试直接使用响应数据
             this.addMessage({
               type: 'ai',
-              content: res.data.aiReply
+              content: res.data
             });
-            this.setData({ inputText: '' });
-            wx.hideLoading();
-          } else {
-            this.handleError('服务器响应缺少AI回复');
           }
         } else {
           this.handleError(`请求失败: ${res.statusCode}`);
@@ -133,8 +150,6 @@ Page({
       },
       fail: (error) => {
         console.error('请求失败详情:', error);
-        console.error('错误类型:', typeof error);
-        console.error('错误信息:', error.errMsg);
         this.handleError(error.errMsg);
       },
       complete: () => {
@@ -214,32 +229,31 @@ Page({
   /**
    * 播放AI回复的语音
    */
-  playAIResponse: function(text) {
-    // 使用小程序的文字转语音接口
-    wx.showLoading({ title: '正在生成语音...' });
+  playAIResponse: function(text, audioData) {
+    if (!text) {
+      console.error('没有文本内容');
+      return;
+    }
+
+    // 如果没有音频数据，就不播放
+    if (!audioData) {
+      console.log('没有音频数据，跳过播放');
+      return;
+    }
+
+    wx.showLoading({ title: '正在播放语音...' });
     
     const innerAudioContext = wx.createInnerAudioContext();
     
-    // 使用微信小程序的文字转语音
-    wx.request({
-      url: 'https://tts.weixin.qq.com/gettts',
-      method: 'GET',
-      responseType: 'arraybuffer',
-      data: {
-        text: text,
-        lang: 'en_US',
-        speed: 0.8,
-        volume: 1
-      },
-      success: (res) => {
-        // 将音频数据转换为临时文件
+    // 将音频数据转换为临时文件
     const fsm = wx.getFileSystemManager();
-        const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio.mp3`;
+    const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio.wav`;
     
     try {
+      // 将 base64 转换为二进制数据并写入文件
       fsm.writeFileSync(
         tempFilePath,
-            res.data,
+        wx.base64ToArrayBuffer(audioData),
         'binary'
       );
       
@@ -255,26 +269,34 @@ Page({
         } catch (e) {
           console.error('删除临时音频文件失败:', e);
         }
+        wx.hideLoading();
+        innerAudioContext.destroy();
       });
-        } catch (e) {
-          console.error('创建临时音频文件失败:', e);
+
+      // 监听播放错误
+      innerAudioContext.onError((err) => {
+        console.error('音频播放错误:', err);
         wx.showToast({
           title: '语音播放失败',
           icon: 'none'
         });
+        wx.hideLoading();
+        // 尝试删除临时文件
+        try {
+          fsm.unlinkSync(tempFilePath);
+        } catch (e) {
+          console.error('删除临时音频文件失败:', e);
         }
-      },
-      fail: (error) => {
-        console.error('获取语音失败:', error);
+        innerAudioContext.destroy();
+      });
+    } catch (e) {
+      console.error('处理音频数据失败:', e);
       wx.showToast({
-          title: '语音生成失败',
+        title: '语音处理失败',
         icon: 'none'
       });
-      },
-      complete: () => {
       wx.hideLoading();
     }
-    });
   },
 
   /**
@@ -284,6 +306,20 @@ Page({
   addMessage: function(message) {
     const messages = this.data.messages;
     message.id = messages.length + 1;
+
+    // 如果消息内容是JSON字符串，尝试解析它
+    if (typeof message.content === 'string' && message.content.startsWith('{')) {
+      try {
+        const parsedContent = JSON.parse(message.content);
+        if (parsedContent.aiReply) {
+          message.content = parsedContent.aiReply;
+          message.audioData = parsedContent.audioData;
+        }
+      } catch (e) {
+        console.error('解析消息内容失败:', e);
+      }
+    }
+
     messages.push(message);
     this.setData({
       messages,
@@ -291,8 +327,8 @@ Page({
     });
 
     // 如果是AI的回复，播放语音
-    if (message.type === 'ai') {
-      this.playAIResponse(message.content);
+    if (message.type === 'ai' && message.audioData) {
+      this.playAIResponse(message.content, message.audioData);
     }
   },
 
