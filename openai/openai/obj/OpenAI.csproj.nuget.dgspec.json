@@ -1,40 +1,36 @@
 {
   "format": 1,
   "restore": {
-    "D:\\AIEnglishTeacher\\openai\\OpenAI\\OpenAI.csproj": {}
+    "D:\\AIEnglishTeacher\\openai\\openai\\openai.csproj": {}
   },
   "projects": {
-    "D:\\AIEnglishTeacher\\openai\\OpenAI\\OpenAI.csproj": {
+    "D:\\AIEnglishTeacher\\openai\\openai\\openai.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\AIEnglishTeacher\\openai\\OpenAI\\OpenAI.csproj",
-        "projectName": "OpenAI",
-        "projectPath": "D:\\AIEnglishTeacher\\openai\\OpenAI\\OpenAI.csproj",
+        "projectUniqueName": "D:\\AIEnglishTeacher\\openai\\openai\\openai.csproj",
+        "projectName": "openai",
+        "projectPath": "D:\\AIEnglishTeacher\\openai\\openai\\openai.csproj",
         "packagesPath": "C:\\Users\\chxi\\.nuget\\packages\\",
-        "outputPath": "D:\\AIEnglishTeacher\\openai\\OpenAI\\obj\\",
+        "outputPath": "D:\\AIEnglishTeacher\\openai\\openai\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
+          "D:\\AIEnglishTeacher\\NuGet.Config",
           "C:\\Users\\chxi\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
-          "net6.0"
+          "net6.0-windows"
         ],
         "sources": {
-          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "https://microsoft.pkgs.visualstudio.com/_packaging/ICE/nuget/v3/index.json": {},
-          "https://msazure.pkgs.visualstudio.com/_packaging/ServiceFabric/nuget/v3/index.json": {},
-          "https://msblox.pkgs.visualstudio.com/_packaging/AzureGenevaMonitoring/nuget/v3/index.json": {},
-          "https://msdata.pkgs.visualstudio.com/_packaging/TLC_Daily/nuget/v3/index.json": {},
-          "https://packagesource": {}
+          "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
-          "net6.0": {
-            "targetAlias": "net6.0",
+          "net6.0-windows7.0": {
+            "targetAlias": "net6.0-windows",
             "projectReferences": {}
           }
         },
@@ -51,8 +47,8 @@
         "SdkAnalysisLevel": "9.0.100"
       },
       "frameworks": {
-        "net6.0": {
-          "targetAlias": "net6.0",
+        "net6.0-windows7.0": {
+          "targetAlias": "net6.0-windows",
           "dependencies": {
             "Aspose.Slides.NET": {
               "target": "Package",
