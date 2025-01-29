@@ -2,7 +2,6 @@
 // Install the .NET library via NuGet: dotnet add package Azure.AI.OpenAI --version 1.0.0-beta.5 
 using Azure;
 using Azure.AI.OpenAI;
-using Azure.Identity;
 using Microsoft.CognitiveServices.Speech;
 using System;
 using System.ComponentModel;
@@ -24,29 +23,19 @@ using Microsoft.Office.Interop.PowerPoint;
 
 namespace OpenAI
 {
-    class Program
+    public class Program
     {
-
         public static async Task<string> RecognizeSpeechAsync()
         {
             // Creates an instance of a speech config with specified subscription key and service region.
-            // Replace with your own subscription key // and service region (e.g., "westus").
             var config = SpeechConfig.FromSubscription("bd5f339e632b4544a1c9a300f80c1b0a", "eastus");
             SpeechRecognitionResult result;
 
             using (var recognizer = new SpeechRecognizer(config))
             {
                 Console.WriteLine("Say something...");
+                result = await recognizer.RecognizeOnceAsync();
 
-                // Starts speech recognition, and returns after a single utterance is recognized. The end of a
-                // single utterance is determined by listening for silence at the end or until a maximum of 15
-                // seconds of audio is processed.  The task returns the recognition text as result. 
-                // Note: Since RecognizeOnceAsync() returns only a single utterance, it is suitable only for single
-                // shot recognition like command or query. 
-                // For long-running multi-utterance recognition, use StartContinuousRecognitionAsync() instead.
-                 result = await recognizer.RecognizeOnceAsync();
-
-                // Checks result.
                 if (result.Reason == ResultReason.RecognizedSpeech)
                 {
                     Console.WriteLine($"We recognized: {result.Text}");
@@ -73,25 +62,17 @@ namespace OpenAI
 
         public static async Task SynthesisToSpeakerAsync(string text)
         {
-            // To support Chinese Characters on Windows platform
             if (Environment.OSVersion.Platform == PlatformID.Win32NT)
             {
                 Console.InputEncoding = System.Text.Encoding.Unicode;
                 Console.OutputEncoding = System.Text.Encoding.Unicode;
             }
 
-            // Creates an instance of a speech config with specified subscription key and service region.
-            // Replace with your own subscription key and service region (e.g., "westus").
-            // The default language is "en-us".
             var config = SpeechConfig.FromSubscription("bd5f339e632b4544a1c9a300f80c1b0a", "eastus");
-
-            // Set the voice name, refer to https://aka.ms/speech/voices/neural for full list.
             config.SpeechSynthesisVoiceName = "en-US-AriaNeural";
 
-            // Creates a speech synthesizer using the default speaker as audio output.
             using (var synthesizer = new SpeechSynthesizer(config))
             {
-
                 using (var result = await synthesizer.SpeakTextAsync(text))
                 {
                     if (result.Reason == ResultReason.SynthesizingAudioCompleted)
@@ -111,9 +92,6 @@ namespace OpenAI
                         }
                     }
                 }
-
-                // This is to give some time for the speaker to finish playing back the audio
-                //Console.WriteLine("Press any key to exit...");
                 Console.ReadKey();
             }
         }
@@ -157,12 +135,11 @@ namespace OpenAI
 
         }
         
-        public static async Task<string> gpt_chat( List<ChatMessage> Messages_History)
+        public static async Task<string> gpt_chat(List<ChatMessage> Messages_History)
         {
             OpenAIClient client = new OpenAIClient(
-            new Uri("https://tinyao.openai.azure.com/"),
-            new AzureKeyCredential("2d20693670634f3db62e0b89f3a91028"));
-            string filePath = @"C:\Users\tinyao\source\repos\openai\OpenAI\Prompt.txt";
+                new Uri("https://tinyao.openai.azure.com/"),
+                new AzureKeyCredential("2d20693670634f3db62e0b89f3a91028"));
             
             var chatCompletionOptions = new ChatCompletionsOptions();
 
@@ -171,34 +148,30 @@ namespace OpenAI
                 chatCompletionOptions.Messages.Add(message);
             }
 
-            chatCompletionOptions.Temperature = (float)0.0;
-            chatCompletionOptions.FrequencyPenalty = (float)0;
-            chatCompletionOptions.PresencePenalty = (float)0;
-            chatCompletionOptions.MaxTokens = 800;
+            // 设置更严格的参数来控制回复
+            chatCompletionOptions.Temperature = (float)0.7;
+            chatCompletionOptions.FrequencyPenalty = (float)0.5;
+            chatCompletionOptions.PresencePenalty = (float)0.5;
+            chatCompletionOptions.MaxTokens = 100;
             chatCompletionOptions.NucleusSamplingFactor = (float)0.95;
+            chatCompletionOptions.StopSequences.Add("(Pause for Emma's response)");
 
-
-            //chatCompletionOptions.StopSequences.Add("hi");
-
-            // If streaming is not selected
             Response<ChatCompletions> completionsResponse = await client.GetChatCompletionsAsync(
-            deploymentOrModelName: "TestGPT", chatCompletionOptions);
+                deploymentOrModelName: "TestGPT", chatCompletionOptions);
 
-            /*new ChatCompletionsOptions()
+            string response = completionsResponse.Value.Choices[0].Message.Content;
+            
+            if (response.Contains("(Pause for Emma's response)"))
             {
+                response = response.Split("(Pause for Emma's response)")[0].Trim();
+            }
 
-                Messages = Messages_History,
-                Temperature = a,
-                MaxTokens = 800,
-                NucleusSamplingFactor = (float)0.95,
-                FrequencyPenalty = (float)0,
-                PresencePenalty = (float)0,
-            });*/
+            // 只在调试模式下输出
+            #if DEBUG
+            Console.WriteLine($"[Debug] AI Response: {response}");
+            #endif
 
-            Console.WriteLine("Teacher:"+completionsResponse.Value.Choices[0].Message.Content);
-            return completionsResponse.Value.Choices[0].Message.Content;
-
-
+            return response;
         }
         /*static void PlaySlide(string filePath, int slideIndexToPlay)
         {

@@ -1,0 +1,8 @@
+D:\AIEnglishTeacher\obj\Debug\net6.0\AIEnglishTeacher.csproj.AssemblyReference.cache
+D:\AIEnglishTeacher\obj\Debug\net6.0\AIEnglishTeacher.GeneratedMSBuildEditorConfig.editorconfig
+D:\AIEnglishTeacher\obj\Debug\net6.0\AIEnglishTeacher.AssemblyInfoInputs.cache
+D:\AIEnglishTeacher\obj\Debug\net6.0\AIEnglishTeacher.AssemblyInfo.cs
+D:\AIEnglishTeacher\obj\Debug\net6.0\AIEnglishTeacher.csproj.CoreCompileInputs.cache
+D:\AIEnglishTeacher\obj\Debug\net6.0\AIEnglishTeacher.MvcApplicationPartsAssemblyInfo.cs
+D:\AIEnglishTeacher\obj\Debug\net6.0\AIEnglishTeacher.MvcApplicationPartsAssemblyInfo.cache
+D:\AIEnglishTeacher\obj\Debug\net6.0\AIEnglishTeacher.sourcelink.json
