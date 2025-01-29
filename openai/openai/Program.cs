@@ -20,6 +20,7 @@ using DocumentFormat.OpenXml.Presentation;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing;
 using Microsoft.Office.Interop.PowerPoint;
+using System.Text.Json;
 
 namespace OpenAI
 {
@@ -60,39 +61,52 @@ namespace OpenAI
             return result.Text;        
         }
 
-        public static async Task SynthesisToSpeakerAsync(string text)
+        public static async Task<byte[]> SynthesisToAudioDataAsync(string text)
         {
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            try
             {
-                Console.InputEncoding = System.Text.Encoding.Unicode;
-                Console.OutputEncoding = System.Text.Encoding.Unicode;
-            }
-
-            var config = SpeechConfig.FromSubscription("bd5f339e632b4544a1c9a300f80c1b0a", "eastus");
-            config.SpeechSynthesisVoiceName = "en-US-AriaNeural";
-
-            using (var synthesizer = new SpeechSynthesizer(config))
-            {
-                using (var result = await synthesizer.SpeakTextAsync(text))
+                if (Environment.OSVersion.Platform == PlatformID.Win32NT)
                 {
-                    if (result.Reason == ResultReason.SynthesizingAudioCompleted)
-                    {
-                        //Console.WriteLine($"Speech synthesized to speaker for text [{text}]");
-                    }
-                    else if (result.Reason == ResultReason.Canceled)
-                    {
-                        var cancellation = SpeechSynthesisCancellationDetails.FromResult(result);
-                        Console.WriteLine($"CANCELED: Reason={cancellation.Reason}");
+                    Console.InputEncoding = System.Text.Encoding.Unicode;
+                    Console.OutputEncoding = System.Text.Encoding.Unicode;
+                }
 
-                        if (cancellation.Reason == CancellationReason.Error)
+                Console.WriteLine($"[Debug] Starting speech synthesis for text: {text}");
+
+                var config = SpeechConfig.FromSubscription("bd5f339e632b4544a1c9a300f80c1b0a", "eastus");
+                config.SpeechSynthesisVoiceName = "en-US-AriaNeural";
+
+                using (var synthesizer = new SpeechSynthesizer(config))
+                {
+                    using (var result = await synthesizer.SpeakTextAsync(text))
+                    {
+                        if (result.Reason == ResultReason.SynthesizingAudioCompleted)
                         {
-                            Console.WriteLine($"CANCELED: ErrorCode={cancellation.ErrorCode}");
-                            Console.WriteLine($"CANCELED: ErrorDetails=[{cancellation.ErrorDetails}]");
-                            Console.WriteLine($"CANCELED: Did you update the subscription info?");
+                            Console.WriteLine($"[Debug] Speech synthesis completed successfully");
+                            return result.AudioData;
+                        }
+                        else if (result.Reason == ResultReason.Canceled)
+                        {
+                            var cancellation = SpeechSynthesisCancellationDetails.FromResult(result);
+                            Console.WriteLine($"[Error] Speech synthesis canceled: {cancellation.Reason}");
+
+                            if (cancellation.Reason == CancellationReason.Error)
+                            {
+                                Console.WriteLine($"[Error] ErrorCode={cancellation.ErrorCode}");
+                                Console.WriteLine($"[Error] ErrorDetails={cancellation.ErrorDetails}");
+                            }
+                            throw new Exception($"Speech synthesis canceled: {cancellation.Reason}");
                         }
                     }
                 }
-                Console.ReadKey();
+                Console.WriteLine($"[Warning] Speech synthesis completed but no audio data returned");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Error] Exception in SynthesisToAudioDataAsync: {ex.Message}");
+                Console.WriteLine($"[Error] Stack trace: {ex.StackTrace}");
+                throw; // 重新抛出异常，让上层处理
             }
         }
 
@@ -137,41 +151,68 @@ namespace OpenAI
         
         public static async Task<string> gpt_chat(List<ChatMessage> Messages_History)
         {
-            OpenAIClient client = new OpenAIClient(
-                new Uri("https://tinyao.openai.azure.com/"),
-                new AzureKeyCredential("2d20693670634f3db62e0b89f3a91028"));
-            
-            var chatCompletionOptions = new ChatCompletionsOptions();
-
-            foreach (var message in Messages_History)
+            try
             {
-                chatCompletionOptions.Messages.Add(message);
+                OpenAIClient client = new OpenAIClient(
+                    new Uri("https://tinyao.openai.azure.com/"),
+                    new AzureKeyCredential("2d20693670634f3db62e0b89f3a91028"));
+                
+                var chatCompletionOptions = new ChatCompletionsOptions();
+
+                foreach (var message in Messages_History)
+                {
+                    chatCompletionOptions.Messages.Add(message);
+                }
+
+                // 设置更严格的参数来控制回复
+                chatCompletionOptions.Temperature = (float)0.7;
+                chatCompletionOptions.FrequencyPenalty = (float)0.5;
+                chatCompletionOptions.PresencePenalty = (float)0.5;
+                chatCompletionOptions.MaxTokens = 100;
+                chatCompletionOptions.NucleusSamplingFactor = (float)0.95;
+                chatCompletionOptions.StopSequences.Add("(Pause for Emma's response)");
+
+                Response<ChatCompletions> completionsResponse = await client.GetChatCompletionsAsync(
+                    deploymentOrModelName: "TestGPT", chatCompletionOptions);
+
+                string response = completionsResponse.Value.Choices[0].Message.Content;
+                
+                if (response.Contains("(Pause for Emma's response)"))
+                {
+                    response = response.Split("(Pause for Emma's response)")[0].Trim();
+                }
+
+                // 生成语音数据
+                byte[] audioData = await SynthesisToAudioDataAsync(response);
+                string audioBase64 = null;
+                if (audioData != null)
+                {
+                    audioBase64 = Convert.ToBase64String(audioData);
+                }
+
+                // 使用System.Text.Json序列化对象，并处理特殊字符
+                var responseObj = new
+                {
+                    aiReply = response.Replace("\"", "\\\"").Replace("\n", "\\n"),
+                    audioData = audioBase64
+                };
+
+                Console.WriteLine($"[Debug] Response object created successfully");
+                return JsonSerializer.Serialize(responseObj);
             }
-
-            // 设置更严格的参数来控制回复
-            chatCompletionOptions.Temperature = (float)0.7;
-            chatCompletionOptions.FrequencyPenalty = (float)0.5;
-            chatCompletionOptions.PresencePenalty = (float)0.5;
-            chatCompletionOptions.MaxTokens = 100;
-            chatCompletionOptions.NucleusSamplingFactor = (float)0.95;
-            chatCompletionOptions.StopSequences.Add("(Pause for Emma's response)");
-
-            Response<ChatCompletions> completionsResponse = await client.GetChatCompletionsAsync(
-                deploymentOrModelName: "TestGPT", chatCompletionOptions);
-
-            string response = completionsResponse.Value.Choices[0].Message.Content;
-            
-            if (response.Contains("(Pause for Emma's response)"))
+            catch (Exception ex)
             {
-                response = response.Split("(Pause for Emma's response)")[0].Trim();
+                Console.WriteLine($"[Error] Exception in gpt_chat: {ex.Message}");
+                Console.WriteLine($"[Error] Stack trace: {ex.StackTrace}");
+                
+                // 返回一个错误响应对象
+                var errorObj = new
+                {
+                    error = true,
+                    message = "服务器内部错误，请稍后重试"
+                };
+                return JsonSerializer.Serialize(errorObj);
             }
-
-            // 只在调试模式下输出
-            #if DEBUG
-            Console.WriteLine($"[Debug] AI Response: {response}");
-            #endif
-
-            return response;
         }
         /*static void PlaySlide(string filePath, int slideIndexToPlay)
         {
@@ -349,6 +390,7 @@ namespace OpenAI
         }
     }
 }
+
 
 
 
