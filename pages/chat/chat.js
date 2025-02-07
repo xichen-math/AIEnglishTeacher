@@ -6,7 +6,9 @@ Page({
     isRecording: false,
     scrollToMessage: '',
     recorderManager: null,
-    inputText: ''  // 新增：文本输入内容
+    inputText: '',  // 新增：文本输入内容
+    hasPlayed: false,  // 新增：用于标记音频是否已播放
+    isPlaying: false  // 新增：用于标记音频是否正在播放
   },
 
   onLoad: function() {
@@ -93,23 +95,25 @@ Page({
       return;
     }
 
-    console.log('开始发送文本消息:', this.data.inputText);
+    const userText = this.data.inputText.trim();
+    const messageId = Date.now();
+
+    // 添加用户消息到界面
+    this.addMessage({
+      type: 'user',
+      content: userText,
+      messageId: messageId
+    });
+
+    // 准备请求数据
+    const requestData = `text=${encodeURIComponent(userText)}`;
+    console.log('发送的数据:', requestData);
 
     // 显示加载提示
     wx.showLoading({ 
       title: '正在处理...',
       mask: true
     });
-
-    // 添加用户消息到界面
-    this.addMessage({
-      type: 'user',
-      content: this.data.inputText
-    });
-
-    // 准备请求数据
-    const requestData = `text=${encodeURIComponent(this.data.inputText)}`;
-    console.log('发送的数据:', requestData);
 
     // 发送请求
     wx.request({
@@ -122,16 +126,12 @@ Page({
       },
       data: requestData,
       success: (res) => {
-        console.log('请求成功，完整响应:', res);
-        
         if (res.statusCode === 200 && res.data) {
           try {
             let responseData = res.data;
-            // 如果响应数据是字符串，尝试解析它
             if (typeof responseData === 'string') {
               responseData = JSON.parse(responseData);
             }
-            console.log('解析后的响应数据:', responseData);
             
             if (responseData.error) {
               this.handleError(responseData.message || '服务器返回错误');
@@ -139,18 +139,16 @@ Page({
             }
             
             if (responseData.aiReply) {
-              // 添加AI回复消息
+              this.cleanupAudioFile();
               this.addMessage({
                 type: 'ai',
                 content: responseData.aiReply,
-                audioData: responseData.audioData
+                audioData: responseData.audioData,
+                messageId: messageId + 1
               });
               this.setData({ inputText: '' });
-            } else {
-              this.handleError('服务器响应格式不正确');
             }
           } catch (error) {
-            console.error('解析响应数据失败:', error);
             this.handleError('响应数据解析失败');
           }
         } else {
@@ -158,17 +156,26 @@ Page({
         }
       },
       fail: (error) => {
-        console.error('请求失败详情:', error);
-        if (error.errMsg.includes('timeout')) {
-          this.handleError('请求超时，请检查网络连接');
-        } else {
-          this.handleError(error.errMsg || '网络请求失败');
-        }
+        this.handleError(error.errMsg.includes('timeout') ? '请求超时' : '网络请求失败');
       },
       complete: () => {
         wx.hideLoading();
       }
     });
+  },
+
+  /**
+   * 清理音频文件
+   */
+  cleanupAudioFile: function() {
+    const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio.wav`;
+    try {
+      const fsm = wx.getFileSystemManager();
+      fsm.accessSync(tempFilePath);
+      fsm.unlinkSync(tempFilePath);
+    } catch (e) {
+      // 文件不存在或删除失败，可以忽略
+    }
   },
 
   handleError: function(message) {
@@ -185,12 +192,11 @@ Page({
    * 发送语音到服务器
    */
   sendVoiceToServer: function(filePath) {
-    // 显示加载提示
+    const messageId = Date.now();
     wx.showLoading({ title: '正在处理...' });
 
-    // 上传录音文件
     wx.uploadFile({
-      url: `${app.globalData.baseUrl}/api/chat`,  // 使用全局配置的baseUrl
+      url: `${app.globalData.baseUrl}/api/chat`,
       filePath: filePath,
       name: 'audio',
       formData: {},
@@ -198,27 +204,28 @@ Page({
         'X-User-Id': app.globalData.userId || 'default-user'
       },
       success: (res) => {
-        console.log('语音上传响应:', res.data);  // 调试日志
-        let response;
         try {
-          response = JSON.parse(res.data);
-          // 添加用户消息
+          const response = JSON.parse(res.data);
+          
           if (response.userText) {
             this.addMessage({
               type: 'user',
-              content: response.userText
+              content: response.userText,
+              messageId: messageId
             });
           }
-          // 添加AI回复
+          
           if (response.aiReply) {
+            this.cleanupAudioFile();
             this.addMessage({
               type: 'ai',
               content: response.aiReply,
-              audioData: responseData.audioData
+              audioData: response.audioData,
+              messageId: messageId + 1
             });
           }
         } catch (e) {
-          console.error('解析响应失败:', e);  // 调试日志
+          console.error('解析响应失败:', e);
           wx.showToast({
             title: '响应格式错误',
             icon: 'none'
@@ -226,7 +233,7 @@ Page({
         }
       },
       fail: (error) => {
-        console.error('发送语音失败:', error);  // 调试日志
+        console.error('发送语音失败:', error);
         wx.showToast({
           title: '发送失败',
           icon: 'none'
@@ -242,24 +249,24 @@ Page({
    * 播放AI回复的语音
    */
   playAIResponse: function(text, audioData) {
-    if (!text) {
-      console.error('没有文本内容');
+    if (!text || !audioData) {
+      console.log('没有文本内容或音频数据，跳过播放');
+      this.setData({ isPlaying: false });
       return;
     }
 
-    // 如果没有音频数据，就不播放
-    if (!audioData) {
-      console.log('没有音频数据，跳过播放');
+    // 如果正在播放，直接返回
+    if (this.data.isPlaying) {
+      console.log('正在播放中，跳过重复播放');
       return;
     }
 
-    wx.showLoading({ title: '正在播放语音...' });
-    
+    // 创建一个新的音频上下文
     const innerAudioContext = wx.createInnerAudioContext();
     
     // 将音频数据转换为临时文件
     const fsm = wx.getFileSystemManager();
-    const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio.wav`;
+    const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio_${Date.now()}.wav`;
     
     try {
       // 将 base64 转换为二进制数据并写入文件
@@ -269,12 +276,15 @@ Page({
         'binary'
       );
       
+      wx.showLoading({ title: '正在播放语音...' });
+      
       // 播放音频
       innerAudioContext.src = tempFilePath;
       innerAudioContext.play();
       
       // 监听播放完成
       innerAudioContext.onEnded(() => {
+        this.setData({ isPlaying: false });
         // 删除临时文件
         try {
           fsm.unlinkSync(tempFilePath);
@@ -287,6 +297,7 @@ Page({
 
       // 监听播放错误
       innerAudioContext.onError((err) => {
+        this.setData({ isPlaying: false });
         console.error('音频播放错误:', err);
         wx.showToast({
           title: '语音播放失败',
@@ -302,49 +313,83 @@ Page({
         innerAudioContext.destroy();
       });
     } catch (e) {
+      this.setData({ isPlaying: false });
       console.error('处理音频数据失败:', e);
       wx.showToast({
         title: '语音处理失败',
         icon: 'none'
       });
       wx.hideLoading();
+      // 确保清理临时文件
+      try {
+        fsm.unlinkSync(tempFilePath);
+      } catch (error) {
+        // 忽略删除失败的错误
+      }
     }
   },
 
   /**
    * 添加消息到列表
-   * @param {Object} message - 消息对象
    */
   addMessage: function(message) {
     if (!message) {
-      console.error('消息对象为空');
+      console.log('消息对象为空');
       return;
     }
 
     try {
-      const messages = this.data.messages;
+      const messages = [...this.data.messages]; // 创建消息数组的副本
+      
+      // 为消息添加ID和时间戳
       message.id = messages.length + 1;
+      message.messageId = message.messageId || Date.now();
       
-      console.log('准备添加的消息:', message); // 添加调试日志
+      console.log('准备添加的消息:', message);
+
+      // 检查消息是否已存在
+      const existingMessage = messages.find(m => 
+        m.type === message.type && 
+        m.content === message.content && 
+        m.messageId === message.messageId
+      );
       
-      // 如果是AI回复，确保直接使用content字段的内容
-      if (message.type === 'ai') {
-        message.content = message.content || '';
-        console.log('AI回复内容:', message.content); // 添加调试日志
+      if (existingMessage) {
+        console.log('消息已存在，跳过添加');
+        return;
+      }
+
+      // 在添加消息前标记音频状态
+      if (message.type === 'ai' && message.audioData) {
+        message.audioPlayed = false;
+        // 将所有其他消息标记为已播放
+        messages.forEach(m => {
+          if (m.type === 'ai' && m.audioData) {
+            m.audioPlayed = true;
+          }
+        });
       }
 
       messages.push(message);
       
+      // 先更新消息列表
       this.setData({
         messages: messages,
         scrollToMessage: `msg-${message.id}`
-      }, () => {
-        console.log('当前所有消息:', this.data.messages); // 添加调试日志
-        // 如果是AI的回复，播放语音
-        if (message.type === 'ai' && message.audioData) {
-          this.playAIResponse(message.content, message.audioData);
-        }
+      });
 
+      // 使用 nextTick 确保状态已更新后再处理音频
+      wx.nextTick(() => {
+        // 只有是新的AI消息且未播放过才播放
+        if (message.type === 'ai' && message.audioData && !message.audioPlayed && !this.data.isPlaying) {
+          message.audioPlayed = true; // 立即标记为已播放
+          this.setData({ 
+            isPlaying: true,
+            ['messages[' + (messages.length - 1) + '].audioPlayed']: true 
+          }, () => {
+            this.playAIResponse(message.content, message.audioData);
+          });
+        }
       });
     } catch (error) {
       console.error('添加消息失败:', error);
