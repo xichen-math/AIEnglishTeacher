@@ -6,9 +6,7 @@ Page({
     isRecording: false,
     scrollToMessage: '',
     recorderManager: null,
-    inputText: '',  // 新增：文本输入内容
-    hasPlayed: false,  // 新增：用于标记音频是否已播放
-    isPlaying: false  // 新增：用于标记音频是否正在播放
+    inputText: ''  // 文本输入内容
   },
 
   onLoad: function() {
@@ -80,6 +78,24 @@ Page({
   },
 
   /**
+   * 处理AI回复消息
+   */
+  handleAIResponse: function(aiReply, audioData, messageId) {
+    console.log('开始处理AI回复');
+    
+    // 准备新消息
+    const aiMessage = {
+      type: 'ai',
+      content: aiReply,
+      messageId: messageId
+    };
+
+    // 添加消息到列表
+    console.log('准备添加消息到列表');
+    this.addMessage(aiMessage);
+  },
+
+  /**
    * 发送文本消息
    */
   sendTextMessage: function() {
@@ -104,6 +120,9 @@ Page({
       content: userText,
       messageId: messageId
     });
+
+    // 清空输入框
+    this.setData({ inputText: '' });
 
     // 准备请求数据
     const requestData = `text=${encodeURIComponent(userText)}`;
@@ -139,14 +158,7 @@ Page({
             }
             
             if (responseData.aiReply) {
-              this.cleanupAudioFile();
-              this.addMessage({
-                type: 'ai',
-                content: responseData.aiReply,
-                audioData: responseData.audioData,
-                messageId: messageId + 1
-              });
-              this.setData({ inputText: '' });
+              this.handleAIResponse(responseData.aiReply, responseData.audioData, messageId + 1);
             }
           } catch (error) {
             this.handleError('响应数据解析失败');
@@ -162,20 +174,6 @@ Page({
         wx.hideLoading();
       }
     });
-  },
-
-  /**
-   * 清理音频文件
-   */
-  cleanupAudioFile: function() {
-    const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio.wav`;
-    try {
-      const fsm = wx.getFileSystemManager();
-      fsm.accessSync(tempFilePath);
-      fsm.unlinkSync(tempFilePath);
-    } catch (e) {
-      // 文件不存在或删除失败，可以忽略
-    }
   },
 
   handleError: function(message) {
@@ -216,13 +214,7 @@ Page({
           }
           
           if (response.aiReply) {
-            this.cleanupAudioFile();
-            this.addMessage({
-              type: 'ai',
-              content: response.aiReply,
-              audioData: response.audioData,
-              messageId: messageId + 1
-            });
+            this.handleAIResponse(response.aiReply, response.audioData, messageId + 1);
           }
         } catch (e) {
           console.error('解析响应失败:', e);
@@ -246,90 +238,6 @@ Page({
   },
 
   /**
-   * 播放AI回复的语音
-   */
-  playAIResponse: function(text, audioData) {
-    if (!text || !audioData) {
-      console.log('没有文本内容或音频数据，跳过播放');
-      this.setData({ isPlaying: false });
-      return;
-    }
-
-    // 如果正在播放，直接返回
-    if (this.data.isPlaying) {
-      console.log('正在播放中，跳过重复播放');
-      return;
-    }
-
-    // 创建一个新的音频上下文
-    const innerAudioContext = wx.createInnerAudioContext();
-    
-    // 将音频数据转换为临时文件
-    const fsm = wx.getFileSystemManager();
-    const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio_${Date.now()}.wav`;
-    
-    try {
-      // 将 base64 转换为二进制数据并写入文件
-      fsm.writeFileSync(
-        tempFilePath,
-        wx.base64ToArrayBuffer(audioData),
-        'binary'
-      );
-      
-      wx.showLoading({ title: '正在播放语音...' });
-      
-      // 播放音频
-      innerAudioContext.src = tempFilePath;
-      innerAudioContext.play();
-      
-      // 监听播放完成
-      innerAudioContext.onEnded(() => {
-        this.setData({ isPlaying: false });
-        // 删除临时文件
-        try {
-          fsm.unlinkSync(tempFilePath);
-        } catch (e) {
-          console.error('删除临时音频文件失败:', e);
-        }
-        wx.hideLoading();
-        innerAudioContext.destroy();
-      });
-
-      // 监听播放错误
-      innerAudioContext.onError((err) => {
-        this.setData({ isPlaying: false });
-        console.error('音频播放错误:', err);
-        wx.showToast({
-          title: '语音播放失败',
-          icon: 'none'
-        });
-        wx.hideLoading();
-        // 尝试删除临时文件
-        try {
-          fsm.unlinkSync(tempFilePath);
-        } catch (e) {
-          console.error('删除临时音频文件失败:', e);
-        }
-        innerAudioContext.destroy();
-      });
-    } catch (e) {
-      this.setData({ isPlaying: false });
-      console.error('处理音频数据失败:', e);
-      wx.showToast({
-        title: '语音处理失败',
-        icon: 'none'
-      });
-      wx.hideLoading();
-      // 确保清理临时文件
-      try {
-        fsm.unlinkSync(tempFilePath);
-      } catch (error) {
-        // 忽略删除失败的错误
-      }
-    }
-  },
-
-  /**
    * 添加消息到列表
    */
   addMessage: function(message) {
@@ -339,7 +247,6 @@ Page({
     }
 
     try {
-      // 使用 concat 创建数组副本，而不是展开运算符
       const messages = this.data.messages.concat();
       
       // 为消息添加ID和时间戳
@@ -360,37 +267,12 @@ Page({
         return;
       }
 
-      // 在添加消息前标记音频状态
-      if (message.type === 'ai' && message.audioData) {
-        message.audioPlayed = false;
-        // 将所有其他消息标记为已播放
-        messages.forEach(m => {
-          if (m.type === 'ai' && m.audioData) {
-            m.audioPlayed = true;
-          }
-        });
-      }
-
       messages.push(message);
       
-      // 先更新消息列表
+      // 立即更新消息列表
       this.setData({
         messages: messages,
         scrollToMessage: `msg-${message.id}`
-      });
-
-      // 使用 nextTick 确保状态已更新后再处理音频
-      wx.nextTick(() => {
-        // 只有是新的AI消息且未播放过才播放
-        if (message.type === 'ai' && message.audioData && !message.audioPlayed && !this.data.isPlaying) {
-          message.audioPlayed = true; // 立即标记为已播放
-          this.setData({ 
-            isPlaying: true,
-            ['messages[' + (messages.length - 1) + '].audioPlayed']: true 
-          }, () => {
-            this.playAIResponse(message.content, message.audioData);
-          });
-        }
       });
     } catch (error) {
       console.error('添加消息失败:', error);
