@@ -4,6 +4,71 @@
     "D:\\AIEnglishTeacher\\openai\\openai\\openai.csproj": {}
   },
   "projects": {
+    "D:\\AIEnglishTeacher\\AIEnglishTeacher.Shared\\AIEnglishTeacher.Shared.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "D:\\AIEnglishTeacher\\AIEnglishTeacher.Shared\\AIEnglishTeacher.Shared.csproj",
+        "projectName": "AIEnglishTeacher.Shared",
+        "projectPath": "D:\\AIEnglishTeacher\\AIEnglishTeacher.Shared\\AIEnglishTeacher.Shared.csproj",
+        "packagesPath": "C:\\Users\\chxi\\.nuget\\packages\\",
+        "outputPath": "D:\\AIEnglishTeacher\\AIEnglishTeacher.Shared\\obj\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "D:\\AIEnglishTeacher\\NuGet.Config",
+          "C:\\Users\\chxi\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net6.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net6.0": {
+            "targetAlias": "net6.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.100"
+      },
+      "frameworks": {
+        "net6.0": {
+          "targetAlias": "net6.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.102\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
     "D:\\AIEnglishTeacher\\openai\\openai\\openai.csproj": {
       "version": "1.0.0",
       "restore": {
@@ -23,15 +88,19 @@
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
-          "net6.0-windows"
+          "net6.0"
         ],
         "sources": {
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
-          "net6.0-windows7.0": {
-            "targetAlias": "net6.0-windows",
-            "projectReferences": {}
+          "net6.0": {
+            "targetAlias": "net6.0",
+            "projectReferences": {
+              "D:\\AIEnglishTeacher\\AIEnglishTeacher.Shared\\AIEnglishTeacher.Shared.csproj": {
+                "projectPath": "D:\\AIEnglishTeacher\\AIEnglishTeacher.Shared\\AIEnglishTeacher.Shared.csproj"
+              }
+            }
           }
         },
         "warningProperties": {
@@ -47,8 +116,8 @@
         "SdkAnalysisLevel": "9.0.100"
       },
       "frameworks": {
-        "net6.0-windows7.0": {
-          "targetAlias": "net6.0-windows",
+        "net6.0": {
+          "targetAlias": "net6.0",
           "dependencies": {
             "Aspose.Slides.NET": {
               "target": "Package",
@@ -64,19 +133,15 @@
             },
             "DocumentFormat.OpenXml": {
               "target": "Package",
-              "version": "[3.2.0, )"
+              "version": "[2.20.0, )"
             },
             "Microsoft.CognitiveServices.Speech": {
               "target": "Package",
-              "version": "[1.40.0, )"
+              "version": "[1.31.0, )"
             },
-            "Microsoft.Office.Interop.Excel": {
+            "System.Speech": {
               "target": "Package",
-              "version": "[15.0.4795.1001, )"
-            },
-            "Microsoft.Office.Interop.PowerPoint": {
-              "target": "Package",
-              "version": "[15.0.4420.1018, )"
+              "version": "[7.0.0, )"
             }
           },
           "imports": [
@@ -93,9 +158,6 @@
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
-            },
-            "Microsoft.WindowsDesktop.App.WindowsForms": {
-              "privateAssets": "none"
             }
           },
           "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.102\\RuntimeIdentifierGraph.json"

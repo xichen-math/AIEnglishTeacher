@@ -3,6 +3,7 @@ using Azure.AI.OpenAI;
 using OpenAI;
 using System.Collections.Concurrent;
 using System.Text.Json;
+using AIEnglishTeacher.Shared;
 
 namespace AIEnglishTeacher.API.Controllers
 {
@@ -17,14 +18,16 @@ namespace AIEnglishTeacher.API.Controllers
     public class ChatController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly IAudioCacheService _audioCacheService;
         // 使用ConcurrentDictionary来存储每个用户的对话历史
         private static readonly ConcurrentDictionary<string, List<ChatMessage>> _userChats = new();
         private const int MAX_MESSAGES = 20; // 限制保留的消息数量
         private const int MAX_MESSAGE_LENGTH = 1000; // 限制每条消息的长度
 
-        public ChatController(IConfiguration configuration)
+        public ChatController(IConfiguration configuration, IAudioCacheService audioCacheService)
         {
             _configuration = configuration;
+            _audioCacheService = audioCacheService;
         }
 
         [HttpPost]
@@ -206,8 +209,15 @@ namespace AIEnglishTeacher.API.Controllers
         {
             try
             {
-                // 等待音频生成完成
-                // TODO: 实现音频数据的获取逻辑
+                // 检查缓存中是否有音频数据
+                if (_audioCacheService.TryGetAudioData(messageId, out string audioData))
+                {
+                    // 从缓存中移除音频数据
+                    _audioCacheService.TryRemoveAudioData(messageId, out _);
+                    return Ok(new { audioData });
+                }
+
+                // 如果没有找到音频数据，返回pending状态
                 return Ok(new { status = "pending" });
             }
             catch (Exception ex)

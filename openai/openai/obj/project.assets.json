@@ -1,7 +1,7 @@
 {
   "version": 3,
   "targets": {
-    "net6.0-windows7.0": {
+    "net6.0": {
       "Aspose.Slides.NET/24.10.0": {
         "type": "package",
         "dependencies": {
@@ -81,34 +81,18 @@
           }
         }
       },
-      "DocumentFormat.OpenXml/3.2.0": {
+      "DocumentFormat.OpenXml/2.20.0": {
         "type": "package",
         "dependencies": {
-          "DocumentFormat.OpenXml.Framework": "3.2.0"
+          "System.IO.Packaging": "4.7.0"
         },
         "compile": {
-          "lib/netstandard2.0/DocumentFormat.OpenXml.dll": {
+          "lib/net6.0/DocumentFormat.OpenXml.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/netstandard2.0/DocumentFormat.OpenXml.dll": {
-            "related": ".xml"
-          }
-        }
-      },
-      "DocumentFormat.OpenXml.Framework/3.2.0": {
-        "type": "package",
-        "dependencies": {
-          "System.IO.Packaging": "8.0.1"
-        },
-        "compile": {
-          "lib/net6.0/DocumentFormat.OpenXml.Framework.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "lib/net6.0/DocumentFormat.OpenXml.Framework.dll": {
+          "lib/net6.0/DocumentFormat.OpenXml.dll": {
             "related": ".xml"
           }
         }
@@ -124,7 +108,7 @@
           }
         }
       },
-      "Microsoft.CognitiveServices.Speech/1.40.0": {
+      "Microsoft.CognitiveServices.Speech/1.31.0": {
         "type": "package",
         "compile": {
           "lib/netstandard2.0/Microsoft.CognitiveServices.Speech.csharp.dll": {
@@ -220,6 +204,34 @@
             "assetType": "native",
             "rid": "android-x86"
           },
+          "runtimes/centos7-x64/native/libMicrosoft.CognitiveServices.Speech.core.so": {
+            "assetType": "native",
+            "rid": "centos7-x64"
+          },
+          "runtimes/centos7-x64/native/libMicrosoft.CognitiveServices.Speech.extension.audio.sys.so": {
+            "assetType": "native",
+            "rid": "centos7-x64"
+          },
+          "runtimes/centos7-x64/native/libMicrosoft.CognitiveServices.Speech.extension.codec.so": {
+            "assetType": "native",
+            "rid": "centos7-x64"
+          },
+          "runtimes/centos7-x64/native/libMicrosoft.CognitiveServices.Speech.extension.kws.ort.so": {
+            "assetType": "native",
+            "rid": "centos7-x64"
+          },
+          "runtimes/centos7-x64/native/libMicrosoft.CognitiveServices.Speech.extension.kws.so": {
+            "assetType": "native",
+            "rid": "centos7-x64"
+          },
+          "runtimes/centos7-x64/native/libMicrosoft.CognitiveServices.Speech.extension.lu.so": {
+            "assetType": "native",
+            "rid": "centos7-x64"
+          },
+          "runtimes/centos7-x64/native/libMicrosoft.CognitiveServices.Speech.extension.mas.so": {
+            "assetType": "native",
+            "rid": "centos7-x64"
+          },
           "runtimes/ios-arm64/native/libMicrosoft.CognitiveServices.Speech.core.a": {
             "assetType": "native",
             "rid": "ios-arm64"
@@ -260,11 +272,7 @@
             "assetType": "native",
             "rid": "linux-arm"
           },
-          "runtimes/linux-arm/native/libpal_azure_c_shared.so": {
-            "assetType": "native",
-            "rid": "linux-arm"
-          },
-          "runtimes/linux-arm/native/libpal_azure_c_shared_openssl3.so": {
+          "runtimes/linux-arm/native/libMicrosoft.CognitiveServices.Speech.extension.mas.so": {
             "assetType": "native",
             "rid": "linux-arm"
           },
@@ -296,11 +304,7 @@
             "assetType": "native",
             "rid": "linux-arm64"
           },
-          "runtimes/linux-arm64/native/libpal_azure_c_shared.so": {
-            "assetType": "native",
-            "rid": "linux-arm64"
-          },
-          "runtimes/linux-arm64/native/libpal_azure_c_shared_openssl3.so": {
+          "runtimes/linux-arm64/native/libMicrosoft.CognitiveServices.Speech.extension.mas.so": {
             "assetType": "native",
             "rid": "linux-arm64"
           },
@@ -332,11 +336,7 @@
             "assetType": "native",
             "rid": "linux-x64"
           },
-          "runtimes/linux-x64/native/libpal_azure_c_shared.so": {
-            "assetType": "native",
-            "rid": "linux-x64"
-          },
-          "runtimes/linux-x64/native/libpal_azure_c_shared_openssl3.so": {
+          "runtimes/linux-x64/native/libMicrosoft.CognitiveServices.Speech.extension.mas.so": {
             "assetType": "native",
             "rid": "linux-x64"
           },
@@ -364,46 +364,6 @@
             "assetType": "native",
             "rid": "osx-x64"
           },
-          "runtimes/win-arm/native/Microsoft.CognitiveServices.Speech.core.dll": {
-            "assetType": "native",
-            "rid": "win-arm"
-          },
-          "runtimes/win-arm/native/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll": {
-            "assetType": "native",
-            "rid": "win-arm"
-          },
-          "runtimes/win-arm/native/Microsoft.CognitiveServices.Speech.extension.kws.dll": {
-            "assetType": "native",
-            "rid": "win-arm"
-          },
-          "runtimes/win-arm/native/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll": {
-            "assetType": "native",
-            "rid": "win-arm"
-          },
-          "runtimes/win-arm/native/Microsoft.CognitiveServices.Speech.extension.lu.dll": {
-            "assetType": "native",
-            "rid": "win-arm"
-          },
-          "runtimes/win-arm64/native/Microsoft.CognitiveServices.Speech.core.dll": {
-            "assetType": "native",
-            "rid": "win-arm64"
-          },
-          "runtimes/win-arm64/native/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll": {
-            "assetType": "native",
-            "rid": "win-arm64"
-          },
-          "runtimes/win-arm64/native/Microsoft.CognitiveServices.Speech.extension.kws.dll": {
-            "assetType": "native",
-            "rid": "win-arm64"
-          },
-          "runtimes/win-arm64/native/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll": {
-            "assetType": "native",
-            "rid": "win-arm64"
-          },
-          "runtimes/win-arm64/native/Microsoft.CognitiveServices.Speech.extension.lu.dll": {
-            "assetType": "native",
-            "rid": "win-arm64"
-          },
           "runtimes/win-x64/native/Microsoft.CognitiveServices.Speech.core.dll": {
             "assetType": "native",
             "rid": "win-x64"
@@ -425,6 +385,10 @@
             "rid": "win-x64"
           },
           "runtimes/win-x64/native/Microsoft.CognitiveServices.Speech.extension.lu.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/Microsoft.CognitiveServices.Speech.extension.mas.dll": {
             "assetType": "native",
             "rid": "win-x64"
           },
@@ -451,6 +415,58 @@
           "runtimes/win-x86/native/Microsoft.CognitiveServices.Speech.extension.lu.dll": {
             "assetType": "native",
             "rid": "win-x86"
+          },
+          "runtimes/win-x86/native/Microsoft.CognitiveServices.Speech.extension.mas.dll": {
+            "assetType": "native",
+            "rid": "win-x86"
+          },
+          "runtimes/win10-arm/native/Microsoft.CognitiveServices.Speech.core.dll": {
+            "assetType": "native",
+            "rid": "win10-arm"
+          },
+          "runtimes/win10-arm/native/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll": {
+            "assetType": "native",
+            "rid": "win10-arm"
+          },
+          "runtimes/win10-arm/native/Microsoft.CognitiveServices.Speech.extension.kws.dll": {
+            "assetType": "native",
+            "rid": "win10-arm"
+          },
+          "runtimes/win10-arm/native/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll": {
+            "assetType": "native",
+            "rid": "win10-arm"
+          },
+          "runtimes/win10-arm/native/Microsoft.CognitiveServices.Speech.extension.lu.dll": {
+            "assetType": "native",
+            "rid": "win10-arm"
+          },
+          "runtimes/win10-arm/native/Microsoft.CognitiveServices.Speech.extension.mas.dll": {
+            "assetType": "native",
+            "rid": "win10-arm"
+          },
+          "runtimes/win10-arm64/native/Microsoft.CognitiveServices.Speech.core.dll": {
+            "assetType": "native",
+            "rid": "win10-arm64"
+          },
+          "runtimes/win10-arm64/native/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll": {
+            "assetType": "native",
+            "rid": "win10-arm64"
+          },
+          "runtimes/win10-arm64/native/Microsoft.CognitiveServices.Speech.extension.kws.dll": {
+            "assetType": "native",
+            "rid": "win10-arm64"
+          },
+          "runtimes/win10-arm64/native/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll": {
+            "assetType": "native",
+            "rid": "win10-arm64"
+          },
+          "runtimes/win10-arm64/native/Microsoft.CognitiveServices.Speech.extension.lu.dll": {
+            "assetType": "native",
+            "rid": "win10-arm64"
+          },
+          "runtimes/win10-arm64/native/Microsoft.CognitiveServices.Speech.extension.mas.dll": {
+            "assetType": "native",
+            "rid": "win10-arm64"
           }
         }
       },
@@ -508,24 +524,6 @@
         },
         "runtime": {
           "lib/netstandard1.0/_._": {}
-        }
-      },
-      "Microsoft.Office.Interop.Excel/15.0.4795.1001": {
-        "type": "package",
-        "compile": {
-          "lib/netstandard2.0/Microsoft.Office.Interop.Excel.dll": {}
-        },
-        "runtime": {
-          "lib/netstandard2.0/Microsoft.Office.Interop.Excel.dll": {}
-        }
-      },
-      "Microsoft.Office.Interop.PowerPoint/15.0.4420.1018": {
-        "type": "package",
-        "compile": {
-          "lib/netstandard2.0/Microsoft.Office.Interop.PowerPoint.dll": {}
-        },
-        "runtime": {
-          "lib/netstandard2.0/Microsoft.Office.Interop.PowerPoint.dll": {}
         }
       },
       "Microsoft.Win32.SystemEvents/7.0.0": {
@@ -611,20 +609,17 @@
           }
         }
       },
-      "System.IO.Packaging/8.0.1": {
+      "System.IO.Packaging/4.7.0": {
         "type": "package",
         "compile": {
-          "lib/net6.0/System.IO.Packaging.dll": {
+          "ref/netstandard2.0/System.IO.Packaging.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net6.0/System.IO.Packaging.dll": {
+          "lib/netstandard2.0/System.IO.Packaging.dll": {
             "related": ".xml"
           }
-        },
-        "build": {
-          "buildTransitive/net6.0/_._": {}
         }
       },
       "System.Memory/4.5.4": {
@@ -697,6 +692,28 @@
           }
         }
       },
+      "System.Speech/7.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/System.Speech.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/System.Speech.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "buildTransitive/net6.0/_._": {}
+        },
+        "runtimeTargets": {
+          "runtimes/win/lib/net6.0/System.Speech.dll": {
+            "assetType": "runtime",
+            "rid": "win"
+          }
+        }
+      },
       "System.Text.Encoding.CodePages/4.4.0": {
         "type": "package",
         "dependencies": {
@@ -750,6 +767,16 @@
         },
         "runtime": {
           "lib/netcoreapp2.1/_._": {}
+        }
+      },
+      "AIEnglishTeacher.Shared/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v6.0",
+        "compile": {
+          "bin/placeholder/AIEnglishTeacher.Shared.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/AIEnglishTeacher.Shared.dll": {}
         }
       }
     }
@@ -832,15 +859,14 @@
         "lib/netstandard2.0/Azure.Identity.xml"
       ]
     },
-    "DocumentFormat.OpenXml/3.2.0": {
-      "sha512": "eDBT9G0sAWUvjgE8l8E5bGCFXgxCZXIecQ8dqUnj2PyxyMR5eBmLahqRRw3Q7uSKM3cKbysaL2mEY0JJbEEOEA==",
+    "DocumentFormat.OpenXml/2.20.0": {
+      "sha512": "+oFMsEppo/W6KpGTRXaJl2jTFYn9zeon4FaZuDoCijQ1/0JaPENaCef7d4Y3f8v116eKhVBwd4Ya+/NDglxkjw==",
       "type": "package",
-      "path": "documentformat.openxml/3.2.0",
+      "path": "documentformat.openxml/2.20.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
-        "README.md",
-        "documentformat.openxml.3.2.0.nupkg.sha512",
+        "documentformat.openxml.2.20.0.nupkg.sha512",
         "documentformat.openxml.nuspec",
         "icon.png",
         "lib/net35/DocumentFormat.OpenXml.dll",
@@ -849,35 +875,12 @@
         "lib/net40/DocumentFormat.OpenXml.xml",
         "lib/net46/DocumentFormat.OpenXml.dll",
         "lib/net46/DocumentFormat.OpenXml.xml",
-        "lib/net8.0/DocumentFormat.OpenXml.dll",
-        "lib/net8.0/DocumentFormat.OpenXml.xml",
+        "lib/net6.0/DocumentFormat.OpenXml.dll",
+        "lib/net6.0/DocumentFormat.OpenXml.xml",
+        "lib/netstandard1.3/DocumentFormat.OpenXml.dll",
+        "lib/netstandard1.3/DocumentFormat.OpenXml.xml",
         "lib/netstandard2.0/DocumentFormat.OpenXml.dll",
         "lib/netstandard2.0/DocumentFormat.OpenXml.xml"
-      ]
-    },
-    "DocumentFormat.OpenXml.Framework/3.2.0": {
-      "sha512": "e1neOKqRnSHUom4JQEorAoZ67aiJOp6+Xzsu0fc6IYfFcgQn6roo+w6i2w//N2u/5ilEfvLr35bNO9zaIN7r7g==",
-      "type": "package",
-      "path": "documentformat.openxml.framework/3.2.0",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "README.md",
-        "documentformat.openxml.framework.3.2.0.nupkg.sha512",
-        "documentformat.openxml.framework.nuspec",
-        "icon.png",
-        "lib/net35/DocumentFormat.OpenXml.Framework.dll",
-        "lib/net35/DocumentFormat.OpenXml.Framework.xml",
-        "lib/net40/DocumentFormat.OpenXml.Framework.dll",
-        "lib/net40/DocumentFormat.OpenXml.Framework.xml",
-        "lib/net46/DocumentFormat.OpenXml.Framework.dll",
-        "lib/net46/DocumentFormat.OpenXml.Framework.xml",
-        "lib/net6.0/DocumentFormat.OpenXml.Framework.dll",
-        "lib/net6.0/DocumentFormat.OpenXml.Framework.xml",
-        "lib/net8.0/DocumentFormat.OpenXml.Framework.dll",
-        "lib/net8.0/DocumentFormat.OpenXml.Framework.xml",
-        "lib/netstandard2.0/DocumentFormat.OpenXml.Framework.dll",
-        "lib/netstandard2.0/DocumentFormat.OpenXml.Framework.xml"
       ]
     },
     "Microsoft.Bcl.AsyncInterfaces/1.1.1": {
@@ -905,10 +908,10 @@
         "version.txt"
       ]
     },
-    "Microsoft.CognitiveServices.Speech/1.40.0": {
-      "sha512": "koqOwmAYRDMrWEbaKnLGoVqjq8FsI9vZpafg/K0c82sWfFG4gv+BbxCXlI4UR3eSJUnKIqwx4BUhhKItgbAMrg==",
+    "Microsoft.CognitiveServices.Speech/1.31.0": {
+      "sha512": "rhneHq8evmmlE+qj4uCz/lH3+9KtTZHZgrj+uhb52JfehjhYD4X0/mT0xeck4o0+qWInwo3U7d1rhLWABIHPzw==",
       "type": "package",
-      "path": "microsoft.cognitiveservices.speech/1.40.0",
+      "path": "microsoft.cognitiveservices.speech/1.31.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -990,7 +993,6 @@
         "build/native/include/c_api/speechapi_c_speech_recognition_model.h",
         "build/native/include/c_api/speechapi_c_speech_translation_config.h",
         "build/native/include/c_api/speechapi_c_speech_translation_model.h",
-        "build/native/include/c_api/speechapi_c_synthesis_request.h",
         "build/native/include/c_api/speechapi_c_synthesizer.h",
         "build/native/include/c_api/speechapi_c_translation_recognizer.h",
         "build/native/include/c_api/speechapi_c_translation_result.h",
@@ -1078,7 +1080,6 @@
         "build/native/include/cxx_api/speechapi_cxx_speech_recognizer.h",
         "build/native/include/cxx_api/speechapi_cxx_speech_synthesis_bookmark_eventargs.h",
         "build/native/include/cxx_api/speechapi_cxx_speech_synthesis_eventargs.h",
-        "build/native/include/cxx_api/speechapi_cxx_speech_synthesis_request.h",
         "build/native/include/cxx_api/speechapi_cxx_speech_synthesis_result.h",
         "build/native/include/cxx_api/speechapi_cxx_speech_synthesis_viseme_eventargs.h",
         "build/native/include/cxx_api/speechapi_cxx_speech_synthesis_word_boundary_eventargs.h",
@@ -1122,7 +1123,7 @@
         "lib/netstandard2.0/Microsoft.CognitiveServices.Speech.csharp.xml",
         "lib/uap10.0/Microsoft.CognitiveServices.Speech.csharp.dll",
         "lib/uap10.0/Microsoft.CognitiveServices.Speech.csharp.xml",
-        "microsoft.cognitiveservices.speech.1.40.0.nupkg.sha512",
+        "microsoft.cognitiveservices.speech.1.31.0.nupkg.sha512",
         "microsoft.cognitiveservices.speech.nuspec",
         "runtimes/android-arm/native/libMicrosoft.CognitiveServices.Speech.core.so",
         "runtimes/android-arm/native/libMicrosoft.CognitiveServices.Speech.extension.audio.sys.so",
@@ -1144,6 +1145,13 @@
         "runtimes/android-x86/native/libMicrosoft.CognitiveServices.Speech.extension.kws.ort.so",
         "runtimes/android-x86/native/libMicrosoft.CognitiveServices.Speech.extension.kws.so",
         "runtimes/android-x86/native/libMicrosoft.CognitiveServices.Speech.extension.lu.so",
+        "runtimes/centos7-x64/native/libMicrosoft.CognitiveServices.Speech.core.so",
+        "runtimes/centos7-x64/native/libMicrosoft.CognitiveServices.Speech.extension.audio.sys.so",
+        "runtimes/centos7-x64/native/libMicrosoft.CognitiveServices.Speech.extension.codec.so",
+        "runtimes/centos7-x64/native/libMicrosoft.CognitiveServices.Speech.extension.kws.ort.so",
+        "runtimes/centos7-x64/native/libMicrosoft.CognitiveServices.Speech.extension.kws.so",
+        "runtimes/centos7-x64/native/libMicrosoft.CognitiveServices.Speech.extension.lu.so",
+        "runtimes/centos7-x64/native/libMicrosoft.CognitiveServices.Speech.extension.mas.so",
         "runtimes/ios-arm64/native/libMicrosoft.CognitiveServices.Speech.core.a",
         "runtimes/iossimulator-arm64/native/libMicrosoft.CognitiveServices.Speech.core.a",
         "runtimes/iossimulator-x64/native/libMicrosoft.CognitiveServices.Speech.core.a",
@@ -1155,8 +1163,7 @@
         "runtimes/linux-arm/native/libMicrosoft.CognitiveServices.Speech.extension.kws.ort.so",
         "runtimes/linux-arm/native/libMicrosoft.CognitiveServices.Speech.extension.kws.so",
         "runtimes/linux-arm/native/libMicrosoft.CognitiveServices.Speech.extension.lu.so",
-        "runtimes/linux-arm/native/libpal_azure_c_shared.so",
-        "runtimes/linux-arm/native/libpal_azure_c_shared_openssl3.so",
+        "runtimes/linux-arm/native/libMicrosoft.CognitiveServices.Speech.extension.mas.so",
         "runtimes/linux-arm64/lib/netstandard2.0/Microsoft.CognitiveServices.Speech.csharp.dll",
         "runtimes/linux-arm64/lib/netstandard2.0/Microsoft.CognitiveServices.Speech.csharp.xml",
         "runtimes/linux-arm64/native/libMicrosoft.CognitiveServices.Speech.core.so",
@@ -1165,8 +1172,7 @@
         "runtimes/linux-arm64/native/libMicrosoft.CognitiveServices.Speech.extension.kws.ort.so",
         "runtimes/linux-arm64/native/libMicrosoft.CognitiveServices.Speech.extension.kws.so",
         "runtimes/linux-arm64/native/libMicrosoft.CognitiveServices.Speech.extension.lu.so",
-        "runtimes/linux-arm64/native/libpal_azure_c_shared.so",
-        "runtimes/linux-arm64/native/libpal_azure_c_shared_openssl3.so",
+        "runtimes/linux-arm64/native/libMicrosoft.CognitiveServices.Speech.extension.mas.so",
         "runtimes/linux-x64/lib/netstandard2.0/Microsoft.CognitiveServices.Speech.csharp.dll",
         "runtimes/linux-x64/lib/netstandard2.0/Microsoft.CognitiveServices.Speech.csharp.xml",
         "runtimes/linux-x64/native/libMicrosoft.CognitiveServices.Speech.core.so",
@@ -1175,8 +1181,7 @@
         "runtimes/linux-x64/native/libMicrosoft.CognitiveServices.Speech.extension.kws.ort.so",
         "runtimes/linux-x64/native/libMicrosoft.CognitiveServices.Speech.extension.kws.so",
         "runtimes/linux-x64/native/libMicrosoft.CognitiveServices.Speech.extension.lu.so",
-        "runtimes/linux-x64/native/libpal_azure_c_shared.so",
-        "runtimes/linux-x64/native/libpal_azure_c_shared_openssl3.so",
+        "runtimes/linux-x64/native/libMicrosoft.CognitiveServices.Speech.extension.mas.so",
         "runtimes/maccatalyst-arm64/native/libMicrosoft.CognitiveServices.Speech.core.a",
         "runtimes/maccatalyst-x64/native/libMicrosoft.CognitiveServices.Speech.core.a",
         "runtimes/osx-arm64/lib/netstandard2.0/Microsoft.CognitiveServices.Speech.csharp.dll",
@@ -1185,48 +1190,57 @@
         "runtimes/osx-x64/lib/netstandard2.0/Microsoft.CognitiveServices.Speech.csharp.dll",
         "runtimes/osx-x64/lib/netstandard2.0/Microsoft.CognitiveServices.Speech.csharp.xml",
         "runtimes/osx-x64/native/libMicrosoft.CognitiveServices.Speech.core.dylib",
-        "runtimes/win-arm/native/Microsoft.CognitiveServices.Speech.core.dll",
-        "runtimes/win-arm/native/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll",
-        "runtimes/win-arm/native/Microsoft.CognitiveServices.Speech.extension.kws.dll",
-        "runtimes/win-arm/native/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll",
-        "runtimes/win-arm/native/Microsoft.CognitiveServices.Speech.extension.lu.dll",
-        "runtimes/win-arm/nativeassets/uap/Microsoft.CognitiveServices.Speech.core.dll",
-        "runtimes/win-arm/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll",
-        "runtimes/win-arm/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.kws.dll",
-        "runtimes/win-arm/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll",
-        "runtimes/win-arm/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.lu.dll",
-        "runtimes/win-arm64/native/Microsoft.CognitiveServices.Speech.core.dll",
-        "runtimes/win-arm64/native/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll",
-        "runtimes/win-arm64/native/Microsoft.CognitiveServices.Speech.extension.kws.dll",
-        "runtimes/win-arm64/native/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll",
-        "runtimes/win-arm64/native/Microsoft.CognitiveServices.Speech.extension.lu.dll",
-        "runtimes/win-arm64/nativeassets/uap/Microsoft.CognitiveServices.Speech.core.dll",
-        "runtimes/win-arm64/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll",
-        "runtimes/win-arm64/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.kws.dll",
-        "runtimes/win-arm64/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll",
-        "runtimes/win-arm64/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.lu.dll",
         "runtimes/win-x64/native/Microsoft.CognitiveServices.Speech.core.dll",
         "runtimes/win-x64/native/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll",
         "runtimes/win-x64/native/Microsoft.CognitiveServices.Speech.extension.codec.dll",
         "runtimes/win-x64/native/Microsoft.CognitiveServices.Speech.extension.kws.dll",
         "runtimes/win-x64/native/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll",
         "runtimes/win-x64/native/Microsoft.CognitiveServices.Speech.extension.lu.dll",
+        "runtimes/win-x64/native/Microsoft.CognitiveServices.Speech.extension.mas.dll",
         "runtimes/win-x64/nativeassets/uap/Microsoft.CognitiveServices.Speech.core.dll",
         "runtimes/win-x64/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll",
         "runtimes/win-x64/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.kws.dll",
         "runtimes/win-x64/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll",
         "runtimes/win-x64/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.lu.dll",
+        "runtimes/win-x64/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.mas.dll",
+        "runtimes/win-x64/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.silk_codec.dll",
         "runtimes/win-x86/native/Microsoft.CognitiveServices.Speech.core.dll",
         "runtimes/win-x86/native/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll",
         "runtimes/win-x86/native/Microsoft.CognitiveServices.Speech.extension.codec.dll",
         "runtimes/win-x86/native/Microsoft.CognitiveServices.Speech.extension.kws.dll",
         "runtimes/win-x86/native/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll",
         "runtimes/win-x86/native/Microsoft.CognitiveServices.Speech.extension.lu.dll",
+        "runtimes/win-x86/native/Microsoft.CognitiveServices.Speech.extension.mas.dll",
         "runtimes/win-x86/nativeassets/uap/Microsoft.CognitiveServices.Speech.core.dll",
         "runtimes/win-x86/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll",
         "runtimes/win-x86/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.kws.dll",
         "runtimes/win-x86/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll",
-        "runtimes/win-x86/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.lu.dll"
+        "runtimes/win-x86/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.lu.dll",
+        "runtimes/win-x86/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.mas.dll",
+        "runtimes/win10-arm/native/Microsoft.CognitiveServices.Speech.core.dll",
+        "runtimes/win10-arm/native/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll",
+        "runtimes/win10-arm/native/Microsoft.CognitiveServices.Speech.extension.kws.dll",
+        "runtimes/win10-arm/native/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll",
+        "runtimes/win10-arm/native/Microsoft.CognitiveServices.Speech.extension.lu.dll",
+        "runtimes/win10-arm/native/Microsoft.CognitiveServices.Speech.extension.mas.dll",
+        "runtimes/win10-arm/nativeassets/uap/Microsoft.CognitiveServices.Speech.core.dll",
+        "runtimes/win10-arm/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll",
+        "runtimes/win10-arm/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.kws.dll",
+        "runtimes/win10-arm/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll",
+        "runtimes/win10-arm/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.lu.dll",
+        "runtimes/win10-arm/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.mas.dll",
+        "runtimes/win10-arm64/native/Microsoft.CognitiveServices.Speech.core.dll",
+        "runtimes/win10-arm64/native/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll",
+        "runtimes/win10-arm64/native/Microsoft.CognitiveServices.Speech.extension.kws.dll",
+        "runtimes/win10-arm64/native/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll",
+        "runtimes/win10-arm64/native/Microsoft.CognitiveServices.Speech.extension.lu.dll",
+        "runtimes/win10-arm64/native/Microsoft.CognitiveServices.Speech.extension.mas.dll",
+        "runtimes/win10-arm64/nativeassets/uap/Microsoft.CognitiveServices.Speech.core.dll",
+        "runtimes/win10-arm64/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.audio.sys.dll",
+        "runtimes/win10-arm64/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.kws.dll",
+        "runtimes/win10-arm64/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.kws.ort.dll",
+        "runtimes/win10-arm64/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.lu.dll",
+        "runtimes/win10-arm64/nativeassets/uap/Microsoft.CognitiveServices.Speech.extension.mas.dll"
       ]
     },
     "Microsoft.Identity.Client/4.61.3": {
@@ -1304,32 +1318,6 @@
         "runtime.json",
         "useSharedDesignerContext.txt",
         "version.txt"
-      ]
-    },
-    "Microsoft.Office.Interop.Excel/15.0.4795.1001": {
-      "sha512": "cuvqi/U5MYSM0gvR2l90q0m/urRgmg69EiwP5VWp1RcaJ0YT5G26Va5LaOZ3KJFc22FNihS5CUjeePUp2YpGQA==",
-      "type": "package",
-      "path": "microsoft.office.interop.excel/15.0.4795.1001",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "lib/net20/Microsoft.Office.Interop.Excel.dll",
-        "lib/netstandard2.0/Microsoft.Office.Interop.Excel.dll",
-        "microsoft.office.interop.excel.15.0.4795.1001.nupkg.sha512",
-        "microsoft.office.interop.excel.nuspec"
-      ]
-    },
-    "Microsoft.Office.Interop.PowerPoint/15.0.4420.1018": {
-      "sha512": "3XkJAqbYq93MqqSOPusNE+6Tve5yBkbE92n9W8f+k8Z9AzXeoTMqMYqhZMrzVOp4saHhMMbOD78JkCjvk+qIzw==",
-      "type": "package",
-      "path": "microsoft.office.interop.powerpoint/15.0.4420.1018",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "lib/net20/Microsoft.Office.Interop.PowerPoint.dll",
-        "lib/netstandard2.0/Microsoft.Office.Interop.PowerPoint.dll",
-        "microsoft.office.interop.powerpoint.15.0.4420.1018.nupkg.sha512",
-        "microsoft.office.interop.powerpoint.nuspec"
       ]
     },
     "Microsoft.Win32.SystemEvents/7.0.0": {
@@ -1443,33 +1431,31 @@
         "useSharedDesignerContext.txt"
       ]
     },
-    "System.IO.Packaging/8.0.1": {
-      "sha512": "KYkIOAvPexQOLDxPO2g0BVoWInnQhPpkFzRqvNrNrMhVT6kqhVr0zEb6KCHlptLFukxnZrjuMVAnxK7pOGUYrw==",
+    "System.IO.Packaging/4.7.0": {
+      "sha512": "9VV4KAbgRQZ79iEoG40KIeZy38O30oWwewScAST879+oki8g/Wa2HXZQgrhDDxQM4GkP1PnRJll05NMiVPbYAw==",
       "type": "package",
-      "path": "system.io.packaging/8.0.1",
+      "path": "system.io.packaging/4.7.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
-        "Icon.png",
         "LICENSE.TXT",
         "THIRD-PARTY-NOTICES.TXT",
-        "buildTransitive/net461/System.IO.Packaging.targets",
-        "buildTransitive/net462/_._",
-        "buildTransitive/net6.0/_._",
-        "buildTransitive/netcoreapp2.0/System.IO.Packaging.targets",
-        "lib/net462/System.IO.Packaging.dll",
-        "lib/net462/System.IO.Packaging.xml",
-        "lib/net6.0/System.IO.Packaging.dll",
-        "lib/net6.0/System.IO.Packaging.xml",
-        "lib/net7.0/System.IO.Packaging.dll",
-        "lib/net7.0/System.IO.Packaging.xml",
-        "lib/net8.0/System.IO.Packaging.dll",
-        "lib/net8.0/System.IO.Packaging.xml",
+        "lib/net46/System.IO.Packaging.dll",
+        "lib/net46/System.IO.Packaging.xml",
+        "lib/netstandard1.3/System.IO.Packaging.dll",
+        "lib/netstandard1.3/System.IO.Packaging.xml",
         "lib/netstandard2.0/System.IO.Packaging.dll",
         "lib/netstandard2.0/System.IO.Packaging.xml",
-        "system.io.packaging.8.0.1.nupkg.sha512",
+        "ref/net46/System.IO.Packaging.dll",
+        "ref/net46/System.IO.Packaging.xml",
+        "ref/netstandard1.3/System.IO.Packaging.dll",
+        "ref/netstandard1.3/System.IO.Packaging.xml",
+        "ref/netstandard2.0/System.IO.Packaging.dll",
+        "ref/netstandard2.0/System.IO.Packaging.xml",
+        "system.io.packaging.4.7.0.nupkg.sha512",
         "system.io.packaging.nuspec",
-        "useSharedDesignerContext.txt"
+        "useSharedDesignerContext.txt",
+        "version.txt"
       ]
     },
     "System.Memory/4.5.4": {
@@ -1630,6 +1616,34 @@
         "version.txt"
       ]
     },
+    "System.Speech/7.0.0": {
+      "sha512": "7E0uB92Cx2sXR67HW9rMKJqDACdLuz9t3I3OwZUFDzAgwKXWuY6CYeRT/NiypHcyZO2be9+0H0w0M6fn7HQtgQ==",
+      "type": "package",
+      "path": "system.speech/7.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "LICENSE.TXT",
+        "THIRD-PARTY-NOTICES.TXT",
+        "buildTransitive/net6.0/_._",
+        "buildTransitive/netcoreapp2.0/System.Speech.targets",
+        "lib/net462/_._",
+        "lib/net6.0/System.Speech.dll",
+        "lib/net6.0/System.Speech.xml",
+        "lib/net7.0/System.Speech.dll",
+        "lib/net7.0/System.Speech.xml",
+        "lib/netstandard2.0/System.Speech.dll",
+        "lib/netstandard2.0/System.Speech.xml",
+        "runtimes/win/lib/net6.0/System.Speech.dll",
+        "runtimes/win/lib/net6.0/System.Speech.xml",
+        "runtimes/win/lib/net7.0/System.Speech.dll",
+        "runtimes/win/lib/net7.0/System.Speech.xml",
+        "system.speech.7.0.0.nupkg.sha512",
+        "system.speech.nuspec",
+        "useSharedDesignerContext.txt"
+      ]
+    },
     "System.Text.Encoding.CodePages/4.4.0": {
       "sha512": "6JX7ZdaceBiLKLkYt8zJcp4xTJd1uYyXXEkPw6mnlUIjh1gZPIVKPtRXPmY5kLf6DwZmf5YLwR3QUrRonl7l0A==",
       "type": "package",
@@ -1760,17 +1774,22 @@
         "useSharedDesignerContext.txt",
         "version.txt"
       ]
+    },
+    "AIEnglishTeacher.Shared/1.0.0": {
+      "type": "project",
+      "path": "../../AIEnglishTeacher.Shared/AIEnglishTeacher.Shared.csproj",
+      "msbuildProject": "../../AIEnglishTeacher.Shared/AIEnglishTeacher.Shared.csproj"
     }
   },
   "projectFileDependencyGroups": {
-    "net6.0-windows7.0": [
+    "net6.0": [
+      "AIEnglishTeacher.Shared >= 1.0.0",
       "Aspose.Slides.NET >= 24.10.0",
       "Azure.AI.OpenAI >= 1.0.0-beta.5",
       "Azure.Identity >= 1.12.0",
-      "DocumentFormat.OpenXml >= 3.2.0",
-      "Microsoft.CognitiveServices.Speech >= 1.40.0",
-      "Microsoft.Office.Interop.Excel >= 15.0.4795.1001",
-      "Microsoft.Office.Interop.PowerPoint >= 15.0.4420.1018"
+      "DocumentFormat.OpenXml >= 2.20.0",
+      "Microsoft.CognitiveServices.Speech >= 1.31.0",
+      "System.Speech >= 7.0.0"
     ]
   },
   "packageFolders": {
@@ -1796,15 +1815,19 @@
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
-        "net6.0-windows"
+        "net6.0"
       ],
       "sources": {
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
-        "net6.0-windows7.0": {
-          "targetAlias": "net6.0-windows",
-          "projectReferences": {}
+        "net6.0": {
+          "targetAlias": "net6.0",
+          "projectReferences": {
+            "D:\\AIEnglishTeacher\\AIEnglishTeacher.Shared\\AIEnglishTeacher.Shared.csproj": {
+              "projectPath": "D:\\AIEnglishTeacher\\AIEnglishTeacher.Shared\\AIEnglishTeacher.Shared.csproj"
+            }
+          }
         }
       },
       "warningProperties": {
@@ -1820,8 +1843,8 @@
       "SdkAnalysisLevel": "9.0.100"
     },
     "frameworks": {
-      "net6.0-windows7.0": {
-        "targetAlias": "net6.0-windows",
+      "net6.0": {
+        "targetAlias": "net6.0",
         "dependencies": {
           "Aspose.Slides.NET": {
             "target": "Package",
@@ -1837,19 +1860,15 @@
           },
           "DocumentFormat.OpenXml": {
             "target": "Package",
-            "version": "[3.2.0, )"
+            "version": "[2.20.0, )"
           },
           "Microsoft.CognitiveServices.Speech": {
             "target": "Package",
-            "version": "[1.40.0, )"
+            "version": "[1.31.0, )"
           },
-          "Microsoft.Office.Interop.Excel": {
+          "System.Speech": {
             "target": "Package",
-            "version": "[15.0.4795.1001, )"
-          },
-          "Microsoft.Office.Interop.PowerPoint": {
-            "target": "Package",
-            "version": "[15.0.4420.1018, )"
+            "version": "[7.0.0, )"
           }
         },
         "imports": [
@@ -1866,9 +1885,6 @@
         "frameworkReferences": {
           "Microsoft.NETCore.App": {
             "privateAssets": "all"
-          },
-          "Microsoft.WindowsDesktop.App.WindowsForms": {
-            "privateAssets": "none"
           }
         },
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.102\\RuntimeIdentifierGraph.json"

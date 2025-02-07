@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenAI;
+using AIEnglishTeacher.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +10,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// 注册音频缓存服务
+builder.Services.AddSingleton<IAudioCacheService, AudioCacheService>();
 
 // 配置 Kestrel
 builder.WebHost.ConfigureKestrel(options =>
@@ -46,6 +50,9 @@ app.UseCors("AllowWeChatMiniProgram");
 app.UseAuthorization();
 
 app.MapControllers();
+
+// 添加健康检查端点
+app.MapGet("/health", () => Results.Ok("Service is healthy"));
 
 // 指定监听地址，使用 0.0.0.0 允许所有网络接口访问
 app.Urls.Clear();
