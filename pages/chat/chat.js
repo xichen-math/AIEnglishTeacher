@@ -83,6 +83,16 @@ Page({
   sendTextMessage: function() {
     if (!this.data.inputText.trim()) return;
 
+    // 检查网络状态
+    if (!app.globalData.isConnected) {
+      wx.showToast({
+        title: '网络未连接',
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+
     console.log('开始发送文本消息:', this.data.inputText);
 
     // 显示加载提示
@@ -97,10 +107,11 @@ Page({
       content: this.data.inputText
     });
 
-    // 发送请求
-    const requestData = `text=${encodeURIComponent(this.data.inputText)}&needAudio=true`;
+    // 准备请求数据
+    const requestData = `text=${encodeURIComponent(this.data.inputText)}`;
     console.log('发送的数据:', requestData);
-    
+
+    // 发送请求
     wx.request({
       url: `${app.globalData.baseUrl}/api/chat`,
       method: 'POST',
@@ -111,11 +122,16 @@ Page({
       },
       data: requestData,
       success: (res) => {
-        console.log('请求成功，状态码:', res.statusCode);
+        console.log('请求成功，完整响应:', res);
         
         if (res.statusCode === 200 && res.data) {
           try {
-            let responseData = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+            let responseData = res.data;
+            // 如果响应数据是字符串，尝试解析它
+            if (typeof responseData === 'string') {
+              responseData = JSON.parse(responseData);
+            }
+            console.log('解析后的响应数据:', responseData);
             
             if (responseData.error) {
               this.handleError(responseData.message || '服务器返回错误');
@@ -123,6 +139,7 @@ Page({
             }
             
             if (responseData.aiReply) {
+              // 添加AI回复消息
               this.addMessage({
                 type: 'ai',
                 content: responseData.aiReply,
@@ -142,10 +159,14 @@ Page({
       },
       fail: (error) => {
         console.error('请求失败详情:', error);
+        if (error.errMsg.includes('timeout')) {
+          this.handleError('请求超时，请检查网络连接');
+        } else {
           this.handleError(error.errMsg || '网络请求失败');
+        }
       },
       complete: () => {
-          wx.hideLoading();
+        wx.hideLoading();
       }
     });
   },
@@ -192,7 +213,8 @@ Page({
           if (response.aiReply) {
             this.addMessage({
               type: 'ai',
-              content: response.aiReply
+              content: response.aiReply,
+              audioData: responseData.audioData
             });
           }
         } catch (e) {
@@ -302,29 +324,27 @@ Page({
     try {
       const messages = this.data.messages;
       message.id = messages.length + 1;
-
-      // 如果消息内容是JSON字符串，尝试解析它
-      if (typeof message.content === 'string' && message.content.startsWith('{')) {
-        try {
-          const parsedContent = JSON.parse(message.content);
-          if (parsedContent.aiReply) {
-            message.content = parsedContent.aiReply;
-            message.audioData = parsedContent.audioData;
-          }
-        } catch (e) {
-          console.error('解析消息内容失败:', e);
-        }
+      
+      console.log('准备添加的消息:', message); // 添加调试日志
+      
+      // 如果是AI回复，确保直接使用content字段的内容
+      if (message.type === 'ai') {
+        message.content = message.content || '';
+        console.log('AI回复内容:', message.content); // 添加调试日志
       }
 
       messages.push(message);
+      
       this.setData({
-        messages,
+        messages: messages,
         scrollToMessage: `msg-${message.id}`
       }, () => {
+        console.log('当前所有消息:', this.data.messages); // 添加调试日志
         // 如果是AI的回复，播放语音
         if (message.type === 'ai' && message.audioData) {
           this.playAIResponse(message.content, message.audioData);
         }
+
       });
     } catch (error) {
       console.error('添加消息失败:', error);

@@ -1,13 +1,12 @@
 <view class="chat-container">
   <!-- 聊天消息列表 -->
-  <scroll-view class="chat-list" scroll-y="true" scroll-into-view="{{scrollToMessage}}">
+  <scroll-view class="chat-list" scroll-y="true" scroll-into-view="{{scrollToMessage}}" scroll-with-animation="true">
     <view class="message-list">
-      <view class="message {{item.type === 'ai' ? 'message-ai' : 'message-user'}}" 
-            wx:for="{{messages}}" 
-            wx:key="id"
-            id="msg-{{item.id}}">
-        <view class="message-content">{{item.content}}</view>
-      </view>
+      <block wx:for="{{messages}}" wx:key="id">
+        <view class="message {{item.type === 'ai' ? 'message-ai' : 'message-user'}}" id="msg-{{item.id}}">
+          <view class="message-content">{{item.content}}</view>
+        </view>
+      </block>
     </view>
   </scroll-view>
 
