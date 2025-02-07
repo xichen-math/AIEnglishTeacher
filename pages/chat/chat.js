@@ -105,33 +105,29 @@ Page({
     if (!app.globalData.isConnected) {
       wx.showToast({
         title: '网络未连接',
-        icon: 'none',
-        duration: 2000
+        icon: 'none'
       });
       return;
     }
 
     const userText = this.data.inputText.trim();
     const messageId = Date.now();
+    const messages = this.data.messages;
+    const newMessageId = messages.length + 1;
 
-    // 添加用户消息到界面
-    this.addMessage({
+    // 直接更新消息列表，添加用户消息
+    messages.push({
       type: 'user',
       content: userText,
-      messageId: messageId
+      messageId: messageId,
+      id: newMessageId
     });
 
-    // 清空输入框
-    this.setData({ inputText: '' });
-
-    // 准备请求数据
-    const requestData = `text=${encodeURIComponent(userText)}`;
-    console.log('发送的数据:', requestData);
-
-    // 显示加载提示
-    wx.showLoading({ 
-      title: '正在处理...',
-      mask: true
+    // 一次性更新状态
+    this.setData({
+      messages,
+      inputText: '',
+      scrollToMessage: `msg-${newMessageId}`
     });
 
     // 发送请求
@@ -143,47 +139,91 @@ Page({
         'content-type': 'application/x-www-form-urlencoded',
         'X-User-Id': app.globalData.userId || 'default-user'
       },
-      data: requestData,
+      data: `text=${encodeURIComponent(userText)}`,
       success: (res) => {
         if (res.statusCode === 200 && res.data) {
           try {
-            let responseData = res.data;
-            if (typeof responseData === 'string') {
-              responseData = JSON.parse(responseData);
-            }
+            const responseData = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
             
             if (responseData.error) {
-              this.handleError(responseData.message || '服务器返回错误');
+              wx.showToast({
+                title: responseData.message || '服务器返回错误',
+                icon: 'none'
+              });
               return;
             }
             
             if (responseData.aiReply) {
-              this.handleAIResponse(responseData.aiReply, responseData.audioData, messageId + 1);
+              // 立即添加AI回复到消息列表
+              messages.push({
+                type: 'ai',
+                content: responseData.aiReply,
+                messageId: responseData.messageId,
+                id: newMessageId + 1
+              });
+
+              // 立即更新界面
+              this.setData({
+                messages,
+                scrollToMessage: `msg-${newMessageId + 1}`
+              });
+
+              // 如果有音频，开始轮询获取音频数据
+              if (responseData.hasAudio) {
+                this.pollAudioData(responseData.messageId);
+              }
             }
           } catch (error) {
-            this.handleError('响应数据解析失败');
+            console.error('响应数据解析失败:', error);
+            wx.showToast({
+              title: '响应格式错误',
+              icon: 'none'
+            });
           }
-        } else {
-          this.handleError(`请求失败: ${res.statusCode}`);
         }
       },
       fail: (error) => {
-        this.handleError(error.errMsg.includes('timeout') ? '请求超时' : '网络请求失败');
-      },
-      complete: () => {
-        wx.hideLoading();
+        wx.showToast({
+          title: error.errMsg.includes('timeout') ? '请求超时' : '网络请求失败',
+          icon: 'none'
+        });
       }
     });
   },
 
-  handleError: function(message) {
-    console.error('错误:', message);
-    wx.hideLoading();
-    wx.showToast({
-      title: typeof message === 'string' ? message : '发生错误',
-      icon: 'none',
-      duration: 2000
-    });
+  /**
+   * 轮询获取音频数据
+   */
+  pollAudioData: function(messageId) {
+    const maxRetries = 10;  // 最大重试次数
+    const interval = 500;   // 轮询间隔（毫秒）
+    let retryCount = 0;
+
+    const poll = () => {
+      wx.request({
+        url: `${app.globalData.baseUrl}/api/chat/audio/${messageId}`,
+        method: 'GET',
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            if (res.data.audioData) {
+              // 音频数据已就绪，触发播放
+              console.log('音频数据已就绪，开始播放');
+              return;
+            } else if (res.data.status === 'pending' && retryCount < maxRetries) {
+              // 继续轮询
+              retryCount++;
+              setTimeout(poll, interval);
+            }
+          }
+        },
+        fail: (error) => {
+          console.error('获取音频数据失败:', error);
+        }
+      });
+    };
+
+    // 开始轮询
+    setTimeout(poll, interval);
   },
 
   /**
@@ -191,7 +231,8 @@ Page({
    */
   sendVoiceToServer: function(filePath) {
     const messageId = Date.now();
-    wx.showLoading({ title: '正在处理...' });
+    const messages = this.data.messages;
+    const newMessageId = messages.length + 1;
 
     wx.uploadFile({
       url: `${app.globalData.baseUrl}/api/chat`,
@@ -206,15 +247,34 @@ Page({
           const response = JSON.parse(res.data);
           
           if (response.userText) {
-            this.addMessage({
+            // 添加用户消息
+            messages.push({
               type: 'user',
               content: response.userText,
-              messageId: messageId
+              messageId: messageId,
+              id: newMessageId
             });
-          }
-          
-          if (response.aiReply) {
-            this.handleAIResponse(response.aiReply, response.audioData, messageId + 1);
+
+            if (response.aiReply) {
+              // 添加AI回复
+              messages.push({
+                type: 'ai',
+                content: response.aiReply,
+                messageId: response.messageId,
+                id: newMessageId + 1
+              });
+
+              // 立即更新界面
+              this.setData({
+                messages,
+                scrollToMessage: `msg-${newMessageId + 1}`
+              });
+
+              // 如果有音频，开始轮询获取音频数据
+              if (response.hasAudio) {
+                this.pollAudioData(response.messageId);
+              }
+            }
           }
         } catch (e) {
           console.error('解析响应失败:', e);
@@ -230,9 +290,6 @@ Page({
           title: '发送失败',
           icon: 'none'
         });
-      },
-      complete: () => {
-        wx.hideLoading();
       }
     });
   },

@@ -184,27 +184,42 @@ namespace OpenAI
                 
                 Console.WriteLine($"[Debug] raw response: {response}");
 
-                // 生成语音数据
-                byte[] audioData = await SynthesisToAudioDataAsync(response);
-                string audioBase64 = null;
-                if (audioData != null)
-                {
-                    audioBase64 = Convert.ToBase64String(audioData);
-                }
-
-                // 使用JsonSerializer正确序列化对象
-                return JsonSerializer.Serialize(new
+                // 立即返回文本响应
+                var textResponse = JsonSerializer.Serialize(new
                 {
                     aiReply = response,
-                    audioData = audioBase64
+                    messageId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    hasAudio = true  // 标记有音频将要生成
                 });
+
+                // 异步生成音频数据
+                _ = Task.Run(async () => {
+                    try {
+                        byte[] audioData = await SynthesisToAudioDataAsync(response);
+                        if (audioData != null)
+                        {
+                            string audioBase64 = Convert.ToBase64String(audioData);
+                            return JsonSerializer.Serialize(new
+                            {
+                                audioData = audioBase64,
+                                messageId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                            });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Error] Audio generation failed: {ex.Message}");
+                    }
+                    return null;
+                });
+
+                return textResponse;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[Error] Exception in gpt_chat: {ex.Message}");
                 Console.WriteLine($"[Error] Stack trace: {ex.StackTrace}");
                 
-                // 返回一个错误响应对象
                 return JsonSerializer.Serialize(new
                 {
                     error = true,
