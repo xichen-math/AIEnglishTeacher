@@ -181,6 +181,8 @@ namespace OpenAI
                 {
                     response = response.Split("(Pause for Emma's response)")[0].Trim();
                 }
+                
+                Console.WriteLine($"[Debug] raw response: {response}");
 
                 // 生成语音数据
                 byte[] audioData = await SynthesisToAudioDataAsync(response);
@@ -190,15 +192,12 @@ namespace OpenAI
                     audioBase64 = Convert.ToBase64String(audioData);
                 }
 
-                // 使用System.Text.Json序列化对象，并处理特殊字符
-                var responseObj = new
+                // 使用JsonSerializer正确序列化对象
+                return JsonSerializer.Serialize(new
                 {
-                    aiReply = response.Replace("\"", "\\\"").Replace("\n", "\\n"),
+                    aiReply = response,
                     audioData = audioBase64
-                };
-
-                Console.WriteLine($"[Debug] Response object created successfully");
-                return JsonSerializer.Serialize(responseObj);
+                });
             }
             catch (Exception ex)
             {
@@ -206,12 +205,11 @@ namespace OpenAI
                 Console.WriteLine($"[Error] Stack trace: {ex.StackTrace}");
                 
                 // 返回一个错误响应对象
-                var errorObj = new
+                return JsonSerializer.Serialize(new
                 {
                     error = true,
                     message = "服务器内部错误，请稍后重试"
-                };
-                return JsonSerializer.Serialize(errorObj);
+                });
             }
         }
         /*static void PlaySlide(string filePath, int slideIndexToPlay)
