@@ -10,12 +10,12 @@
 using System;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyCompanyAttribute("openai")]
+[assembly: System.Reflection.AssemblyCompanyAttribute("OpenAI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f5668bb849e0682934703661853780e94494be45")]
-[assembly: System.Reflection.AssemblyProductAttribute("openai")]
-[assembly: System.Reflection.AssemblyTitleAttribute("openai")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+df49bd0ed70f02895baec69c070372d7451a9e06")]
+[assembly: System.Reflection.AssemblyProductAttribute("OpenAI")]
+[assembly: System.Reflection.AssemblyTitleAttribute("OpenAI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
 [assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
 [assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]

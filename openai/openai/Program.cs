@@ -7,25 +7,15 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Net;
-//ing Aspose.Slides;
-using System.Drawing.Imaging;
-using System.Windows.Forms;
-using Microsoft.Identity.Client;
-using System.Diagnostics.Tracing;
-//using Microsoft.Office.Interop.PowerPoint;
-using System.Runtime.InteropServices;
-//using Microsoft.Office.Core;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Presentation;
-using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Drawing;
-using Microsoft.Office.Interop.PowerPoint;
 using System.Text.Json;
+using AIEnglishTeacher.Shared;
 
 namespace OpenAI
 {
     public class Program
     {
+        private static readonly IAudioCacheService _audioCacheService = new AudioCacheService();
+
         public static async Task<string> RecognizeSpeechAsync()
         {
             // Creates an instance of a speech config with specified subscription key and service region.
@@ -185,10 +175,11 @@ namespace OpenAI
                 Console.WriteLine($"[Debug] raw response: {response}");
 
                 // 立即返回文本响应
+                var messageId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 var textResponse = JsonSerializer.Serialize(new
                 {
                     aiReply = response,
-                    messageId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    messageId = messageId,
                     hasAudio = true  // 标记有音频将要生成
                 });
 
@@ -199,18 +190,14 @@ namespace OpenAI
                         if (audioData != null)
                         {
                             string audioBase64 = Convert.ToBase64String(audioData);
-                            return JsonSerializer.Serialize(new
-                            {
-                                audioData = audioBase64,
-                                messageId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-                            });
+                            // 将音频数据存储到缓存中
+                            _audioCacheService.StoreAudioData(messageId, audioBase64);
                         }
                     }
                     catch (Exception ex)
                     {
                         Console.WriteLine($"[Error] Audio generation failed: {ex.Message}");
                     }
-                    return null;
                 });
 
                 return textResponse;
