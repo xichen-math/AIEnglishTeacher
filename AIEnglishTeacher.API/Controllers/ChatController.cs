@@ -162,15 +162,31 @@ namespace AIEnglishTeacher.API.Controllers
                     
                     // 重试一次
                     string aiReply = await OpenAI.Program.gpt_chat(messages);
-                    messages.Add(new ChatMessage(ChatRole.Assistant, aiReply));
-
-                    return Ok(new
+                    
+                    // 解析重试后的响应
+                    try 
                     {
-                        inputType = request.Audio != null ? "audio" : "text",
-                        userText = recognizedText,
-                        aiReply = aiReply,
-                        warning = "Conversation history was cleared due to length limits"
-                    });
+                        var retryResponse = JsonSerializer.Deserialize<JsonDocument>(aiReply);
+                        string retryReplyContent = retryResponse.RootElement.GetProperty("aiReply").GetString();
+                        string retryAudioContent = retryResponse.RootElement.GetProperty("audioData").GetString();
+                        
+                        // 添加AI的回复到历史记录
+                        messages.Add(new ChatMessage(ChatRole.Assistant, retryReplyContent));
+
+                        return Ok(new
+                        {
+                            inputType = request.Audio != null ? "audio" : "text",
+                            userText = recognizedText,
+                            aiReply = retryReplyContent,
+                            audioData = retryAudioContent,
+                            warning = "Conversation history was cleared due to length limits"
+                        });
+                    }
+                    catch (Exception parseEx)
+                    {
+                        Console.WriteLine($"Error parsing retry response: {parseEx.Message}");
+                        return StatusCode(500, new { error = true, message = "Error processing retry response" });
+                    }
                 }
             }
             catch (Exception ex)

@@ -21,71 +21,8 @@ namespace AIEnglishTeacher.Core.Services
 
         public async Task<string> RecognizeSpeechAsync()
         {
-            var config = SpeechConfig.FromSubscription(_speechKey, _speechRegion);
-            SpeechRecognitionResult result;
-
-            using (var recognizer = new SpeechRecognizer(config))
-            {
-                Console.WriteLine("Say something...");
-                result = await recognizer.RecognizeOnceAsync();
-
-                if (result.Reason == ResultReason.RecognizedSpeech)
-                {
-                    Console.WriteLine($"We recognized: {result.Text}");
-                }
-                else if (result.Reason == ResultReason.NoMatch)
-                {
-                    Console.WriteLine($"NOMATCH: Speech could not be recognized.");
-                }
-                else if (result.Reason == ResultReason.Canceled)
-                {
-                    var cancellation = CancellationDetails.FromResult(result);
-                    Console.WriteLine($"CANCELED: Reason={cancellation.Reason}");
-
-                    if (cancellation.Reason == CancellationReason.Error)
-                    {
-                        Console.WriteLine($"CANCELED: ErrorCode={cancellation.ErrorCode}");
-                        Console.WriteLine($"CANCELED: ErrorDetails={cancellation.ErrorDetails}");
-                        Console.WriteLine($"CANCELED: Did you update the subscription info?");
-                    }
-                }
-            }
-            return result.Text;
-        }
-
-        public async Task SynthesisToSpeakerAsync(string text)
-        {
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-            {
-                Console.InputEncoding = System.Text.Encoding.Unicode;
-                Console.OutputEncoding = System.Text.Encoding.Unicode;
-            }
-
-            var config = SpeechConfig.FromSubscription(_speechKey, _speechRegion);
-            config.SpeechSynthesisVoiceName = "en-US-AriaNeural";
-
-            using (var synthesizer = new SpeechSynthesizer(config))
-            {
-                using (var result = await synthesizer.SpeakTextAsync(text))
-                {
-                    if (result.Reason == ResultReason.SynthesizingAudioCompleted)
-                    {
-                        //Console.WriteLine($"Speech synthesized to speaker for text [{text}]");
-                    }
-                    else if (result.Reason == ResultReason.Canceled)
-                    {
-                        var cancellation = SpeechSynthesisCancellationDetails.FromResult(result);
-                        Console.WriteLine($"CANCELED: Reason={cancellation.Reason}");
-
-                        if (cancellation.Reason == CancellationReason.Error)
-                        {
-                            Console.WriteLine($"CANCELED: ErrorCode={cancellation.ErrorCode}");
-                            Console.WriteLine($"CANCELED: ErrorDetails=[{cancellation.ErrorDetails}]");
-                            Console.WriteLine($"CANCELED: Did you update the subscription info?");
-                        }
-                    }
-                }
-            }
+            // 使用 OpenAI.Program 中的实现
+            return await OpenAI.Program.RecognizeSpeechAsync();
         }
 
         public async Task<string> ChatWithAIAsync(List<ChatMessage> messages)

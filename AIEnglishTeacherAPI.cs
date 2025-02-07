@@ -39,59 +39,8 @@ app.UseHttpsRedirection();
 app.UseCors("AllowWeChatMiniProgram");
 app.UseAuthorization();
 
-// 语音识别和AI对话端点
-app.MapPost("/api/chat", async (HttpContext context) =>
-{
-    try
-    {
-        var form = await context.Request.ReadFormAsync();
-        var file = form.Files["audio"];
-
-        if (file == null)
-        {
-            return Results.BadRequest("No audio file received");
-        }
-
-        // 保存音频文件
-        var tempPath = Path.GetTempFileName();
-        using (var stream = new FileStream(tempPath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        // 调用Program.cs中的语音识别方法
-        string recognizedText = await Program.RecognizeSpeechAsync();
-
-        // 创建聊天消息
-        var messages = new List<ChatMessage>();
-        // 从配置文件读取系统提示词
-        string systemPrompt = File.ReadAllText("Prompt1.txt");
-        messages.Add(new ChatMessage(ChatRole.System, systemPrompt));
-        messages.Add(new ChatMessage(ChatRole.User, recognizedText));
-
-        // 调用Program.cs中的GPT对话方法
-        string aiReply = await Program.gpt_chat(messages);
-
-        // 生成语音回复
-        await Program.SynthesisToSpeakerAsync(aiReply);
-
-        // 返回结果
-        var response = new
-        {
-            userText = recognizedText,
-            aiReply = aiReply
-        };
-
-        // 删除临时文件
-        File.Delete(tempPath);
-
-        return Results.Ok(response);
-    }
-    catch (Exception ex)
-    {
-        return Results.Problem(ex.Message);
-    }
-});
+// 使用控制器路由
+app.MapControllers();
 
 // 添加健康检查端点
 app.MapGet("/health", () => Results.Ok("Service is healthy"));
