@@ -339,7 +339,8 @@ Page({
     }
 
     try {
-      const messages = [...this.data.messages]; // 创建消息数组的副本
+      // 使用 concat 创建数组副本，而不是展开运算符
+      const messages = this.data.messages.concat();
       
       // 为消息添加ID和时间戳
       message.id = messages.length + 1;
