@@ -109,24 +109,25 @@ namespace AIEnglishTeacher.API.Controllers
                     }
 
                     // 获取AI回复
-                    string aiReply = await OpenAI.Program.gpt_chat(messages);
+                    string aiResponse = await OpenAI.Program.gpt_chat(messages);
 
                     // 尝试解析AI回复
                     try 
                     {
-                        var aiResponse = JsonSerializer.Deserialize<JsonDocument>(aiReply);
+                        var responseData = JsonSerializer.Deserialize<JsonDocument>(aiResponse);
                         
                         // 检查是否有错误
-                        if (aiResponse.RootElement.TryGetProperty("error", out var errorElement) && 
+                        if (responseData.RootElement.TryGetProperty("error", out var errorElement) && 
                             errorElement.GetBoolean())
                         {
-                            string errorMessage = aiResponse.RootElement.GetProperty("message").GetString();
+                            string errorMessage = responseData.RootElement.GetProperty("message").GetString();
                             return StatusCode(500, new { error = true, message = errorMessage });
                         }
 
                         // 获取AI回复内容
-                        string aiReplyContent = aiResponse.RootElement.GetProperty("aiReply").GetString();
-                        string audioDataContent = aiResponse.RootElement.GetProperty("audioData").GetString();
+                        string aiReplyContent = responseData.RootElement.GetProperty("aiReply").GetString();
+                        long messageId = responseData.RootElement.GetProperty("messageId").GetInt64();
+                        bool hasAudio = responseData.RootElement.GetProperty("hasAudio").GetBoolean();
 
                         // 限制AI回复长度
                         if (aiReplyContent.Length > MAX_MESSAGE_LENGTH)
@@ -142,7 +143,8 @@ namespace AIEnglishTeacher.API.Controllers
                             inputType = request.Audio != null ? "audio" : "text",
                             userText = recognizedText,
                             aiReply = aiReplyContent,
-                            audioData = audioDataContent
+                            messageId = messageId,
+                            hasAudio = hasAudio
                         });
                     }
                     catch (Exception ex)
@@ -161,14 +163,15 @@ namespace AIEnglishTeacher.API.Controllers
                     messages.Add(new ChatMessage(ChatRole.User, recognizedText));
                     
                     // 重试一次
-                    string aiReply = await OpenAI.Program.gpt_chat(messages);
+                    string aiResponse = await OpenAI.Program.gpt_chat(messages);
                     
                     // 解析重试后的响应
                     try 
                     {
-                        var retryResponse = JsonSerializer.Deserialize<JsonDocument>(aiReply);
+                        var retryResponse = JsonSerializer.Deserialize<JsonDocument>(aiResponse);
                         string retryReplyContent = retryResponse.RootElement.GetProperty("aiReply").GetString();
-                        string retryAudioContent = retryResponse.RootElement.GetProperty("audioData").GetString();
+                        long messageId = retryResponse.RootElement.GetProperty("messageId").GetInt64();
+                        bool hasAudio = retryResponse.RootElement.GetProperty("hasAudio").GetBoolean();
                         
                         // 添加AI的回复到历史记录
                         messages.Add(new ChatMessage(ChatRole.Assistant, retryReplyContent));
@@ -178,7 +181,8 @@ namespace AIEnglishTeacher.API.Controllers
                             inputType = request.Audio != null ? "audio" : "text",
                             userText = recognizedText,
                             aiReply = retryReplyContent,
-                            audioData = retryAudioContent,
+                            messageId = messageId,
+                            hasAudio = hasAudio,
                             warning = "Conversation history was cleared due to length limits"
                         });
                     }
@@ -194,6 +198,21 @@ namespace AIEnglishTeacher.API.Controllers
                 Console.WriteLine($"Error in Chat endpoint: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+            }
+        }
+
+        [HttpGet("audio/{messageId}")]
+        public async Task<IActionResult> GetAudio(long messageId)
+        {
+            try
+            {
+                // 等待音频生成完成
+                // TODO: 实现音频数据的获取逻辑
+                return Ok(new { status = "pending" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Failed to get audio data", message = ex.Message });
             }
         }
     }
