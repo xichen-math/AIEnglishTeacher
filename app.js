@@ -45,18 +45,12 @@ App({
     const systemInfo = wx.getSystemInfoSync();
     console.log('系统信息:', systemInfo);
     
-    // 判断是否在开发环境
-    if (systemInfo.platform === 'devtools') {
-      // 开发环境使用本地服务器
-      this.globalData.baseUrl = 'http://10.32.80.123:5000';
-    } else {
-      // 真机环境使用实际服务器地址
-      // 注意：这里需要替换为您的实际服务器地址
-      this.globalData.baseUrl = 'https://api.yourdomain.com';
-      
-      // 测试服务器连接
-      this.testServerConnection();
-    }
+    // 设置服务器地址
+    // 使用ngrok提供的公网地址
+    this.globalData.baseUrl = 'https://41e3-2404-f801-9000-18-3320-3e88-8782-b997.ngrok-free.app';  // 请将此处替换为您在ngrok窗口看到的实际地址
+    
+    // 测试服务器连接
+    this.testServerConnection();
   },
 
   testServerConnection() {

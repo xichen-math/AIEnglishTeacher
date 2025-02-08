@@ -139,26 +139,46 @@ Page({
         'content-type': 'application/x-www-form-urlencoded',
         'X-User-Id': app.globalData.userId || 'default-user'
       },
-      data: `text=${encodeURIComponent(userText)}`,
+      data: {
+        text: userText
+      },
       success: (res) => {
-        if (res.statusCode === 200 && res.data) {
+        if (res.statusCode === 200) {
           try {
-            const responseData = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+            // 检查返回的数据类型
+            if (typeof res.data === 'string') {
+              // 尝试解析字符串为JSON
+              try {
+                res.data = JSON.parse(res.data);
+              } catch (parseError) {
+                console.error('服务器返回的数据不是有效的JSON格式:', res.data);
+                wx.showToast({
+                  title: '服务器返回数据格式错误',
+                  icon: 'none'
+                });
+                return;
+              }
+            }
             
-            if (responseData.error) {
+            // 验证数据结构
+            if (!res.data || (typeof res.data !== 'object')) {
+              throw new Error('返回数据格式不正确');
+            }
+
+            if (res.data.error) {
               wx.showToast({
-                title: responseData.message || '服务器返回错误',
+                title: res.data.message || '服务器返回错误',
                 icon: 'none'
               });
               return;
             }
             
-            if (responseData.aiReply) {
+            if (res.data.aiReply) {
               // 立即添加AI回复到消息列表
               messages.push({
                 type: 'ai',
-                content: responseData.aiReply,
-                messageId: responseData.messageId,
+                content: res.data.aiReply,
+                messageId: res.data.messageId,
                 id: newMessageId + 1
               });
 
@@ -169,20 +189,27 @@ Page({
               });
 
               // 如果有音频，开始轮询获取音频数据
-              if (responseData.hasAudio) {
-                this.pollAudioData(responseData.messageId);
+              if (res.data.hasAudio) {
+                this.pollAudioData(res.data.messageId);
               }
             }
           } catch (error) {
-            console.error('响应数据解析失败:', error);
+            console.error('处理响应数据时出错:', error, '原始数据:', res.data);
             wx.showToast({
-              title: '响应格式错误',
+              title: '数据处理失败',
               icon: 'none'
             });
           }
+        } else {
+          console.error('服务器响应状态码异常:', res.statusCode);
+          wx.showToast({
+            title: `服务器响应异常(${res.statusCode})`,
+            icon: 'none'
+          });
         }
       },
       fail: (error) => {
+        console.error('请求失败:', error);
         wx.showToast({
           title: error.errMsg.includes('timeout') ? '请求超时' : '网络请求失败',
           icon: 'none'
@@ -206,18 +233,76 @@ Page({
         success: (res) => {
           if (res.statusCode === 200 && res.data) {
             if (res.data.audioData) {
-              // 音频数据已就绪，触发播放
-              console.log('音频数据已就绪，开始播放');
+              // 音频数据已就绪，创建临时文件并播放
+              const fsm = wx.getFileSystemManager();
+              const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio_${messageId}.mp3`;
+              
+              try {
+                // 将Base64音频数据写入临时文件
+                fsm.writeFileSync(
+                  tempFilePath,
+                  wx.base64ToArrayBuffer(res.data.audioData),
+                  'binary'
+                );
+
+                // 创建音频实例
+                const innerAudioContext = wx.createInnerAudioContext();
+                innerAudioContext.src = tempFilePath;
+                
+                // 监听错误
+                innerAudioContext.onError((err) => {
+                  console.error('音频播放错误:', err);
+                  wx.showToast({
+                    title: '音频播放失败',
+                    icon: 'none'
+                  });
+                });
+
+                // 监听播放结束
+                innerAudioContext.onEnded(() => {
+                  console.log('音频播放完成');
+                  innerAudioContext.destroy();
+                  // 删除临时文件
+                  fsm.unlink({
+                    filePath: tempFilePath,
+                    fail: (err) => {
+                      console.error('删除临时文件失败:', err);
+                    }
+                  });
+                });
+
+                // 开始播放
+                console.log('开始播放音频');
+                innerAudioContext.play();
+
+              } catch (error) {
+                console.error('处理音频数据失败:', error);
+                wx.showToast({
+                  title: '音频处理失败',
+                  icon: 'none'
+                });
+              }
+              
               return;
             } else if (res.data.status === 'pending' && retryCount < maxRetries) {
               // 继续轮询
               retryCount++;
               setTimeout(poll, interval);
+            } else if (retryCount >= maxRetries) {
+              console.log('获取音频数据超时');
+              wx.showToast({
+                title: '获取音频超时',
+                icon: 'none'
+              });
             }
           }
         },
         fail: (error) => {
           console.error('获取音频数据失败:', error);
+          wx.showToast({
+            title: '获取音频失败',
+            icon: 'none'
+          });
         }
       });
     };

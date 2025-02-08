@@ -18,7 +18,11 @@
       "ignore": [],
       "disablePlugins": [],
       "outputPath": ""
-    }
+    },
+    "requiredPrivateInfos": [
+      "getFileSystemManager",
+      "createInnerAudioContext"
+    ]
   },
   "condition": {},
   "editorSetting": {
