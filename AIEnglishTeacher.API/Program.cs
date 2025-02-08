@@ -27,9 +27,10 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowWeChatMiniProgram",
         builder =>
         {
-            builder.WithOrigins("*")
+            builder.SetIsOriginAllowed(_ => true)  // 允许所有来源
                    .AllowAnyMethod()
-                   .AllowAnyHeader();
+                   .AllowAnyHeader()
+                   .AllowCredentials();
         });
 });
 

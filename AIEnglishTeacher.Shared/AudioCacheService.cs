@@ -17,15 +17,35 @@ namespace AIEnglishTeacher.Shared
 
         private void StartCleanupTimer(long messageId)
         {
-            var timer = new System.Threading.Timer(
-                state => 
-                {
-                    _audioCache.TryRemove(messageId, out _);
-                    ((System.Threading.Timer)state!).Dispose();
-                },
-                null,
-                AUDIO_CACHE_TIMEOUT,
-                Timeout.Infinite);
+            try
+            {
+                var timer = new System.Threading.Timer(
+                    state => 
+                    {
+                        try
+                        {
+                            _audioCache.TryRemove(messageId, out _);
+                            var timerInstance = state as System.Threading.Timer;
+                            timerInstance?.Dispose();
+                        }
+                        catch (Exception ex)
+                        {
+                            // 记录错误但不抛出异常，以防止应用程序崩溃
+                            System.Diagnostics.Debug.WriteLine($"清理音频缓存时出错: {ex.Message}");
+                        }
+                    },
+                    null,  // 初始状态为null
+                    AUDIO_CACHE_TIMEOUT,
+                    Timeout.Infinite);
+
+                // 设置timer自身作为state
+                timer.Change(AUDIO_CACHE_TIMEOUT, Timeout.Infinite);
+            }
+            catch (Exception ex)
+            {
+                // 记录错误但不抛出异常，以防止应用程序崩溃
+                System.Diagnostics.Debug.WriteLine($"创建清理定时器时出错: {ex.Message}");
+            }
         }
 
         public bool TryGetAudioData(long messageId, out string audioData)
