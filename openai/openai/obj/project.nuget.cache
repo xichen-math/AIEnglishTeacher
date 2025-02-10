@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "d7y9jeOOYSs=",
+  "dgSpecHash": "t7W6183rdy0=",
   "success": true,
-  "projectFilePath": "D:\\AIEnglishTeacher\\openai\\openai\\openai.csproj",
+  "projectFilePath": "D:\\AIEnglishTeacher\\openai\\OpenAI\\OpenAI.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\chxi\\.nuget\\packages\\aspose.slides.net\\24.10.0\\aspose.slides.net.24.10.0.nupkg.sha512",
     "C:\\Users\\chxi\\.nuget\\packages\\azure.ai.openai\\1.0.0-beta.5\\azure.ai.openai.1.0.0-beta.5.nupkg.sha512",

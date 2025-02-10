@@ -1,7 +1,7 @@
 {
   "format": 1,
   "restore": {
-    "D:\\AIEnglishTeacher\\openai\\openai\\openai.csproj": {}
+    "D:\\AIEnglishTeacher\\openai\\OpenAI\\OpenAI.csproj": {}
   },
   "projects": {
     "D:\\AIEnglishTeacher\\AIEnglishTeacher.Shared\\AIEnglishTeacher.Shared.csproj": {
@@ -69,14 +69,14 @@
         }
       }
     },
-    "D:\\AIEnglishTeacher\\openai\\openai\\openai.csproj": {
+    "D:\\AIEnglishTeacher\\openai\\OpenAI\\OpenAI.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\AIEnglishTeacher\\openai\\openai\\openai.csproj",
-        "projectName": "openai",
-        "projectPath": "D:\\AIEnglishTeacher\\openai\\openai\\openai.csproj",
+        "projectUniqueName": "D:\\AIEnglishTeacher\\openai\\OpenAI\\OpenAI.csproj",
+        "projectName": "OpenAI",
+        "projectPath": "D:\\AIEnglishTeacher\\openai\\OpenAI\\OpenAI.csproj",
         "packagesPath": "C:\\Users\\chxi\\.nuget\\packages\\",
-        "outputPath": "D:\\AIEnglishTeacher\\openai\\openai\\obj\\",
+        "outputPath": "D:\\AIEnglishTeacher\\openai\\OpenAI\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
