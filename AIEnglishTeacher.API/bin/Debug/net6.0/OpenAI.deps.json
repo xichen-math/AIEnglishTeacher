@@ -6,7 +6,7 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v6.0": {
-      "OpenAI/1.0.0": {
+      "openai/1.0.0": {
         "dependencies": {
           "AIEnglishTeacher.Shared": "1.0.0",
           "Aspose.Slides.NET": "24.10.0",
@@ -17,7 +17,7 @@
           "System.Speech": "7.0.0"
         },
         "runtime": {
-          "OpenAI.dll": {}
+          "openai.dll": {}
         }
       },
       "Aspose.Slides.NET/24.10.0": {
@@ -708,7 +708,7 @@
     }
   },
   "libraries": {
-    "OpenAI/1.0.0": {
+    "openai/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

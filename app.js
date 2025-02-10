@@ -11,6 +11,16 @@ App({
   },
 
   onLaunch() {
+    // 初始化云开发
+    if (!wx.cloud) {
+      console.error('请使用 2.2.3 或以上的基础库以使用云能力')
+    } else {
+      wx.cloud.init({
+        env: 'test-6g0nfnc7f85f8936',  // 修正环境ID
+        traceUser: true
+      })
+    }
+
     // 初始化网络状态监听
     this.initNetworkListener();
     // 初始化服务器地址
@@ -47,7 +57,7 @@ App({
     
     // 设置服务器地址
     // 使用ngrok提供的公网地址
-    this.globalData.baseUrl = 'https://41e3-2404-f801-9000-18-3320-3e88-8782-b997.ngrok-free.app';  // 请将此处替换为您在ngrok窗口看到的实际地址
+    this.globalData.baseUrl = 'https://e910-2404-f801-9000-18-abc7-1ab1-66fe-4462.ngrok-free.app';  // 请将此处替换为您在ngrok窗口看到的实际地址
     
     // 测试服务器连接
     this.testServerConnection();

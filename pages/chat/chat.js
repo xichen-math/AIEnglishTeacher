@@ -130,88 +130,107 @@ Page({
       scrollToMessage: `msg-${newMessageId}`
     });
 
-    // 发送请求
-    wx.request({
-      url: `${app.globalData.baseUrl}/api/chat`,
-      method: 'POST',
-      timeout: 30000,
-      header: {
-        'content-type': 'application/x-www-form-urlencoded',
-        'X-User-Id': app.globalData.userId || 'default-user'
-      },
+    // 调用云函数
+    wx.cloud.callFunction({
+      name: 'chat',
       data: {
-        text: userText
+        text: userText,
+        userId: app.globalData.userId
       },
       success: (res) => {
-        if (res.statusCode === 200) {
-          try {
-            // 检查返回的数据类型
-            if (typeof res.data === 'string') {
-              // 尝试解析字符串为JSON
-              try {
-                res.data = JSON.parse(res.data);
-              } catch (parseError) {
-                console.error('服务器返回的数据不是有效的JSON格式:', res.data);
-                wx.showToast({
-                  title: '服务器返回数据格式错误',
-                  icon: 'none'
-                });
-                return;
-              }
-            }
-            
-            // 验证数据结构
-            if (!res.data || (typeof res.data !== 'object')) {
-              throw new Error('返回数据格式不正确');
-            }
-
-            if (res.data.error) {
-              wx.showToast({
-                title: res.data.message || '服务器返回错误',
-                icon: 'none'
-              });
-              return;
-            }
-            
-            if (res.data.aiReply) {
-              // 立即添加AI回复到消息列表
-              messages.push({
-                type: 'ai',
-                content: res.data.aiReply,
-                messageId: res.data.messageId,
-                id: newMessageId + 1
-              });
-
-              // 立即更新界面
-              this.setData({
-                messages,
-                scrollToMessage: `msg-${newMessageId + 1}`
-              });
-
-              // 如果有音频，开始轮询获取音频数据
-              if (res.data.hasAudio) {
-                this.pollAudioData(res.data.messageId);
-              }
-            }
-          } catch (error) {
-            console.error('处理响应数据时出错:', error, '原始数据:', res.data);
-            wx.showToast({
-              title: '数据处理失败',
-              icon: 'none'
-            });
-          }
-        } else {
-          console.error('服务器响应状态码异常:', res.statusCode);
+        console.log('云函数调用成功:', res.result);
+        if (res.result.error) {
+          console.error('云函数返回错误:', res.result);
           wx.showToast({
-            title: `服务器响应异常(${res.statusCode})`,
+            title: res.result.message || '处理失败',
             icon: 'none'
           });
+          return;
+        }
+
+        // 添加AI回复到消息列表
+        messages.push({
+          type: 'ai',
+          content: res.result.aiReply,
+          messageId: res.result.messageId,
+          id: newMessageId + 1,
+          hasAudio: res.result.hasAudio,
+          audioFileID: res.result.audioFileID
+        });
+
+        // 更新界面
+        this.setData({
+          messages,
+          scrollToMessage: `msg-${newMessageId + 1}`
+        });
+
+        // 如果有音频，自动播放
+        if (res.result.hasAudio && res.result.audioFileID) {
+          this.playCloudAudio(res.result.audioFileID);
         }
       },
       fail: (error) => {
-        console.error('请求失败:', error);
+        console.error('云函数调用失败:', error);
+        // 显示具体错误信息
+        let errorMsg = '发送失败';
+        if (error.errMsg) {
+          if (error.errMsg.includes('cloud function execute timeout')) {
+            errorMsg = '请求超时，请重试';
+          } else if (error.errMsg.includes('not exist')) {
+            errorMsg = '云函数未找到，请检查部署';
+          }
+        }
         wx.showToast({
-          title: error.errMsg.includes('timeout') ? '请求超时' : '网络请求失败',
+          title: errorMsg,
+          icon: 'none',
+          duration: 2000
+        });
+      }
+    });
+  },
+
+  /**
+   * 播放云存储音频
+   */
+  playCloudAudio: function(fileID) {
+    // 创建音频实例
+    const innerAudioContext = wx.createInnerAudioContext();
+    
+    // 获取音频文件临时链接
+    wx.cloud.getTempFileURL({
+      fileList: [fileID],
+      success: res => {
+        console.log('音频文件临时链接:', res.fileList[0].tempFileURL);
+        innerAudioContext.src = res.fileList[0].tempFileURL;
+        
+        // 监听错误
+        innerAudioContext.onError((err) => {
+          console.error('音频播放错误:', err);
+          wx.showToast({
+            title: '音频播放失败',
+            icon: 'none'
+          });
+        });
+
+        // 监听播放开始
+        innerAudioContext.onPlay(() => {
+          console.log('音频开始播放');
+        });
+
+        // 监听播放结束
+        innerAudioContext.onEnded(() => {
+          console.log('音频播放完成');
+          innerAudioContext.destroy();
+        });
+
+        // 开始播放
+        console.log('触发音频播放');
+        innerAudioContext.play();
+      },
+      fail: error => {
+        console.error('获取音频文件链接失败:', error);
+        wx.showToast({
+          title: '音频加载失败',
           icon: 'none'
         });
       }
