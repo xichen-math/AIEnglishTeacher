@@ -57,14 +57,14 @@ process.env.AZURE_OPENAI_DEPLOYMENT = "TestGPT";
 
 // 测试用例
 const testCases = [
-  // {
-  //   name: '初始问候测试',
-  //   event: {
-  //     text: "hi",
-  //     userId: "test_user",
-  //     conversationId: "test_conv_1"
-  //   }
-  // },
+  {
+    name: '初始问候测试',
+    event: {
+      text: "hi",
+      userId: "test_user",
+      conversationId: "test_conv_1"
+    }
+  }
   // {
   //   name: '学生回应测试',
   //   event: {
@@ -97,12 +97,12 @@ const testCases = [
   //     conversationId: "test_conv_1"
   //   }
   // },
-  {
-    name: '空输入测试',
-    event: {
-      userId: "test_user"
-    }
-  },
+  // {
+  //   name: '空输入测试',
+  //   event: {
+  //     userId: "test_user"
+  //   }
+  // },
   // {
   //   name: '超长文本测试',
   //   event: {
