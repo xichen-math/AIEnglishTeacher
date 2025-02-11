@@ -19,7 +19,6 @@ exports.main = async (event, context) => {
   const wxContext = cloud.getWXContext()
 
   console.log('云函数开始执行，输入参数:', { text, audioFileID, userId, conversationId });
-  console.log('环境变量:', process.env);
 
   try {
     let processedText = text;

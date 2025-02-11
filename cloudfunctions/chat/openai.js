@@ -224,7 +224,7 @@ async function synthesizeSpeech(text, messageId) {
  * @param {ChatMessage[]} history - 历史消息记录
  * @returns {Promise<{text: string, hasAudio: boolean, audioUrl: string, messageId: number}>}
  */
-async function chat(text, history) {
+async function chat(text, history = []) {
   try {
     // 检查环境变量
     const envCheck = {
@@ -232,9 +232,8 @@ async function chat(text, history) {
       AZURE_OPENAI_KEY: process.env.AZURE_OPENAI_KEY || "2d20693670634f3db62e0b89f3a91028",
       AZURE_OPENAI_DEPLOYMENT: process.env.AZURE_OPENAI_DEPLOYMENT || "TestGPT"
     };
-    console.log('环境变量检查:', envCheck);
-
-    // 构建对话历史，格式与Program.cs保持一致
+    
+    // 构建对话历史
     const messages = [];
     
     // 只有在没有历史记录时（新的一轮对话）才添加系统消息
@@ -347,5 +346,6 @@ async function chat(text, history) {
 
 module.exports = {
   chat,
-  recognizeSpeech
+  recognizeSpeech,
+  getPromptFromCloud
 }; 
