@@ -19,6 +19,19 @@ App({
       })
     }
 
+    // 初始化或获取 userId
+    const userId = wx.getStorageSync('userId');
+    if (!userId) {
+      // 生成新的 userId
+      const newUserId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      wx.setStorageSync('userId', newUserId);
+      this.globalData.userId = newUserId;
+      console.log('生成新的 userId:', newUserId);
+    } else {
+      this.globalData.userId = userId;
+      console.log('使用已存在的 userId:', userId);
+    }
+
     // 初始化网络状态监听
     this.initNetworkListener();
 

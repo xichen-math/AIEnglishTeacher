@@ -146,6 +146,12 @@ Page({
     });
 
     // 调用云函数
+    console.log('准备调用云函数，参数:', {
+      text: userText,
+      userId: app.globalData.userId,
+      conversationId: this.data.conversationId
+    });
+
     wx.cloud.callFunction({
       name: 'chat',
       data: {
