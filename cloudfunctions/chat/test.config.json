@@ -1,0 +1,7 @@
+{
+  "testMode": true,
+  "testEvent": {
+    "text": "hi",
+    "userId": "test_user"
+  }
+} 
