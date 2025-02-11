@@ -236,26 +236,37 @@ async function chat(text, history = []) {
     // 构建对话历史
     const messages = [];
     
-    // 只有在没有历史记录时（新的一轮对话）才添加系统消息
+    // 获取 system prompt（新对话时从云存储获取，否则从历史记录中获取）
+    let systemPrompt = null;
     if (history.length === 0) {
-      console.log('新的一轮对话，开始获取Prompt...');
-      const prompt = await getPromptFromCloud();
-      messages.push({ role: 'system', content: prompt });
-      console.log('已添加系统Prompt');
-    } else {
-      console.log('当前对话轮次中，使用已有的Prompt');
+      console.log('新对话开始，添加系统Prompt...');
+      systemPrompt = await getPromptFromCloud();
+      messages.push({ role: 'system', content: systemPrompt });
     }
 
-    // 添加历史消息，与Program.cs保持一致的格式
-    history.forEach(msg => {
-      messages.push(
-        { role: 'user', content: msg.userText },
-        { role: 'assistant', content: msg.aiReply }
-      );
-    });
+    // 添加历史记录
+    if (history.length > 0) {
+      console.log('添加历史记录，数量:', history.length);
+      history.forEach((msg) => {
+        if (msg.role === 'system' && msg.content) {
+          messages.push({ role: 'system', content: msg.content });
+        } else {
+          if (msg.userText) {
+            messages.push({ role: 'user', content: msg.userText });
+          }
+          if (msg.aiReply) {
+            messages.push({ role: 'assistant', content: msg.aiReply });
+          }
+        }
+      });
+    }
 
     // 添加当前消息
+    console.log('添加当前消息:', text);
     messages.push({ role: 'user', content: text });
+
+    // 打印完整的消息列表
+    console.log('发送给 OpenAI 的完整消息列表:', JSON.stringify(messages, null, 2));
 
     // 使用与Program.cs完全相同的endpoint和参数
     const url = `${envCheck.AZURE_OPENAI_ENDPOINT}/openai/deployments/${envCheck.AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version=2023-05-15`;
@@ -264,12 +275,12 @@ async function chat(text, history = []) {
       url,
       {
         messages: messages,
-        temperature: 0.7,           // 与Program.cs保持一致
-        frequency_penalty: 0.5,     // 与Program.cs保持一致
-        presence_penalty: 0.5,      // 与Program.cs保持一致
-        max_tokens: 100,           // 与Program.cs保持一致
-        top_p: 0.95,               // 与Program.cs保持一致
-        stop: ["(Pause for Emma's response)"]  // 与Program.cs保持一致
+        temperature: 0.7,
+        frequency_penalty: 0.5,
+        presence_penalty: 0.5,
+        max_tokens: 100,
+        top_p: 0.95,
+        stop: ["(Pause for Emma's response)"]
       },
       {
         headers: {
@@ -298,7 +309,8 @@ async function chat(text, history = []) {
       text: aiReply,
       hasAudio: false,
       audioUrl: null,
-      messageId
+      messageId,
+      systemPrompt: systemPrompt  // 只在第一次对话时返回
     };
 
     // 异步处理语音合成

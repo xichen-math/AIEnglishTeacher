@@ -57,41 +57,77 @@ exports.main = async (event, context) => {
 
     console.log('开始获取历史对话');
     // 获取历史对话记录
-    const historyRes = await chatsCollection
-      .where({
-        userId: userId || 'default',  // 如果没有userId，使用default
-        _openid: wxContext.OPENID,
-        conversationId: conversationId  // 使用conversationId来区分对话轮次
-      })
-      .orderBy('timestamp', 'desc')
-      .limit(MAX_MESSAGES)
-      .get()
+    console.log('开始获取历史对话，查询条件:', {
+      userId: userId || 'default',
+      conversationId: conversationId
+    });
 
-    const history = historyRes.data.reverse()
+    // 先获取系统消息
+    const systemRes = await chatsCollection
+      .where({
+        userId: userId || 'default',
+        conversationId: conversationId,
+        role: 'system'
+      })
+      .get();
+
+    // 再获取对话消息
+    const chatRes = await chatsCollection
+      .where({
+        userId: userId || 'default',
+        conversationId: conversationId,
+        role: db.command.exists(false)  // 不包含 role 字段的记录
+      })
+      .orderBy('timestamp', 'asc')
+      .limit(MAX_MESSAGES)
+      .get();
+
+    // 合并系统消息和对话消息
+    const history = [...systemRes.data, ...chatRes.data];
     console.log('获取到历史对话条数:', history.length);
+    console.log('历史对话内容:', JSON.stringify(history, null, 2));
 
     // 调用 OpenAI API
     console.log('开始调用OpenAI API');
-    const result = await openai.chat(processedText, history)
+    const result = await openai.chat(processedText, history);
     console.log('OpenAI API 调用成功:', result);
 
     // 保存对话记录
     console.log('开始保存对话记录');
+    const newRecord = {
+      messageId: result.messageId,
+      userId: userId,
+      conversationId: conversationId,
+      userText: processedText,
+      aiReply: result.text,
+      timestamp: Date.now(),
+      hasAudio: result.hasAudio,
+      audioUrl: result.audioUrl,
+      inputType: audioFileID ? 'voice' : 'text'
+    };
+    console.log('准备保存的记录:', newRecord);
+
     await chatsCollection.add({
-      data: {
-        messageId: result.messageId,
-        userId: userId,
-        conversationId: conversationId,  // 保存conversationId
-        _openid: wxContext.OPENID,
-        userText: processedText,
-        aiReply: result.text,
-        timestamp: result.messageId,
-        hasAudio: result.hasAudio,
-        audioUrl: result.audioUrl,
-        inputType: audioFileID ? 'voice' : 'text'
-      }
-    })
+      data: newRecord
+    });
     console.log('对话记录保存成功');
+
+    // 如果这是新对话的第一条消息，保存系统消息
+    if (history.length === 0) {
+      console.log('保存系统消息到历史记录');
+      const systemRecord = {
+        messageId: Date.now() - 1000,  // 确保系统消息在最前面
+        userId: userId,
+        conversationId: conversationId,
+        role: 'system',
+        content: result.systemPrompt,
+        timestamp: Date.now() - 1000  // 确保系统消息在最前面
+      };
+      await chatsCollection.add({
+        data: systemRecord
+      });
+      console.log('系统消息保存成功');
+    }
 
     return {
       success: true,

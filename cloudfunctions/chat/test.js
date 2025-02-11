@@ -2,20 +2,49 @@ const cloud = require('wx-server-sdk');
 const fs = require('fs');
 const path = require('path');
 
+// 存储对话历史的内存数据库
+let chatHistory = [];
+
 // 模拟云开发环境
 cloud.init = () => {};
 cloud.database = () => ({
   collection: (name) => ({
-    where: () => ({
-      get: async () => ({ data: [] }),
-      orderBy: () => ({
-        limit: () => ({
-          get: async () => ({ data: [] })
+    where: (query) => ({
+      get: async () => {
+        // 根据查询条件过滤历史记录
+        const filtered = chatHistory.filter(record => 
+          record.userId === query.userId && 
+          record.conversationId === query.conversationId
+        );
+        console.log('查询条件:', query);
+        console.log('查询结果:', filtered);
+        return { data: filtered };
+      },
+      orderBy: (field, order) => ({
+        limit: (count) => ({
+          get: async () => {
+            // 根据查询条件过滤并排序
+            const filtered = chatHistory.filter(record => 
+              record.userId === query.userId && 
+              record.conversationId === query.conversationId
+            );
+            const sorted = filtered.sort((a, b) => 
+              order === 'desc' ? b[field] - a[field] : a[field] - b[field]
+            );
+            const limited = sorted.slice(0, count);
+            console.log('排序后的查询结果:', limited);
+            return { data: limited };
+          }
         })
-      }),
-      update: async () => ({ stats: { updated: 1 } })
+      })
     }),
-    add: async (data) => ({ _id: 'test_id' })
+    add: async ({ data }) => {
+      // 添加新记录到历史数组
+      const record = { _id: `test_id_${chatHistory.length + 1}`, ...data };
+      chatHistory.push(record);
+      console.log('添加新记录:', record);
+      return { _id: record._id };
+    }
   })
 });
 
@@ -57,13 +86,33 @@ process.env.AZURE_OPENAI_DEPLOYMENT = "TestGPT";
 
 // 测试用例
 const testCases = [
+  // {
+  //   name: '初始问候测试',
+  //   event: {
+  //     text: "hi",
+  //     userId: "test_user",
+  //     conversationId: "test_conv_1"
+  //   }
+  // },
   {
-    name: '初始问候测试',
-    event: {
-      text: "hi",
-      userId: "test_user",
-      conversationId: "test_conv_1"
-    }
+    name: '多轮对话测试',
+    event: [
+      {
+        text: "Hi.",
+        userId: "test_user",
+        conversationId: "test_conv_2"
+      },
+      {
+        text: "great.",
+        userId: "test_user",
+        conversationId: "test_conv_2"
+      },
+      {
+        text: "sure.",
+        userId: "test_user",
+        conversationId: "test_conv_2"
+      }
+    ]
   }
   // {
   //   name: '学生回应测试',
@@ -130,19 +179,34 @@ const testCases = [
 async function runTest() {
   console.log('开始运行测试...\n');
   
+  // 清空历史记录
+  chatHistory = [];
+  
   for (const testCase of testCases) {
     try {
       console.log(`=== 开始测试: ${testCase.name} ===`);
-      console.log('测试输入:', JSON.stringify(testCase.event, null, 2));
       
-      // 执行测试前的准备工作
-      const cleanup = testCase.beforeTest ? testCase.beforeTest() : null;
-      
-      const result = await main(testCase.event, {});
-      console.log('测试结果:', JSON.stringify(result, null, 2));
-      
-      // 执行清理工作
-      if (cleanup) cleanup();
+      if (Array.isArray(testCase.event)) {
+        // 多轮对话测试
+        console.log('开始多轮对话测试...');
+        for (const event of testCase.event) {
+          console.log('\n--- 对话轮次 ---');
+          console.log('用户输入:', event.text);
+          const result = await main(event, {});
+          console.log('AI回复:', result.aiReply);
+          
+          // 打印当前历史记录
+          console.log('当前对话历史:', chatHistory);
+        }
+      } else {
+        // 单轮对话测试
+        console.log('测试输入:', JSON.stringify(testCase.event, null, 2));
+        const result = await main(testCase.event, {});
+        console.log('测试结果:', JSON.stringify(result, null, 2));
+        
+        // 打印当前历史记录
+        console.log('当前对话历史:', chatHistory);
+      }
       
       console.log(`=== 测试 ${testCase.name} 完成 ===\n`);
     } catch (error) {
