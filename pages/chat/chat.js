@@ -6,7 +6,8 @@ Page({
     isRecording: false,
     scrollToMessage: '',
     recorderManager: null,
-    inputText: ''  // 文本输入内容
+    inputText: '',  // 文本输入内容
+    conversationId: null  // 当前对话ID
   },
 
   onLoad: function() {
@@ -14,12 +15,26 @@ Page({
     this.recorderManager = wx.getRecorderManager();
     this.initRecorderManager();
     
+    // 生成新的对话ID
+    const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
     // 添加欢迎消息
     const course = app.globalData.selectedCourse;
-    this.addMessage({
+    const welcomeMessage = {
       type: 'ai',
-      content: `欢迎来到${course?.name || '基础英语会话'}课程，我是你的AI英语老师，让我们开始对话吧！`
+      content: `欢迎来到${course?.name || '基础英语会话'}课程，我是你的AI英语老师，让我们开始对话吧！`,
+      messageId: Date.now(),
+      id: 1
+    };
+    
+    // 设置初始状态
+    this.setData({
+      messages: [welcomeMessage],
+      conversationId,
+      scrollToMessage: 'msg-1'
     });
+
+    console.log('初始化完成，会话ID:', conversationId);
   },
 
   /**
@@ -135,7 +150,8 @@ Page({
       name: 'chat',
       data: {
         text: userText,
-        userId: app.globalData.userId
+        userId: app.globalData.userId,
+        conversationId: this.data.conversationId
       },
       success: (res) => {
         console.log('云函数调用成功:', res.result);
@@ -155,7 +171,7 @@ Page({
           messageId: res.result.messageId,
           id: newMessageId + 1,
           hasAudio: res.result.hasAudio,
-          audioFileID: res.result.audioFileID
+          audioUrl: res.result.audioUrl
         });
 
         // 更新界面
@@ -165,23 +181,14 @@ Page({
         });
 
         // 如果有音频，自动播放
-        if (res.result.hasAudio && res.result.audioFileID) {
-          this.playCloudAudio(res.result.audioFileID);
+        if (res.result.hasAudio && res.result.audioUrl) {
+          this.playCloudAudio(res.result.audioUrl);
         }
       },
       fail: (error) => {
         console.error('云函数调用失败:', error);
-        // 显示具体错误信息
-        let errorMsg = '发送失败';
-        if (error.errMsg) {
-          if (error.errMsg.includes('cloud function execute timeout')) {
-            errorMsg = '请求超时，请重试';
-          } else if (error.errMsg.includes('not exist')) {
-            errorMsg = '云函数未找到，请检查部署';
-          }
-        }
         wx.showToast({
-          title: errorMsg,
+          title: '发送失败',
           icon: 'none',
           duration: 2000
         });
@@ -467,5 +474,66 @@ Page({
 
     // 返回首页
     wx.navigateBack();
+  },
+
+  // 开始新对话
+  startNewConversation() {
+    const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    this.setData({
+      conversationId,
+      messages: []  // 清空消息列表
+    });
+    console.log('开始新对话:', conversationId);
+  },
+
+  // 发送消息
+  async sendMessage(text) {
+    if (!text.trim()) return;
+    
+    this.setData({ loading: true });
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'chat',
+        data: {
+          text,
+          userId: 'default',  // 这里可以根据实际需求设置userId
+          conversationId: this.data.conversationId
+        }
+      });
+      
+      if (res.result.success) {
+        // 处理成功响应
+        const messages = this.data.messages;
+        messages.push({
+          type: 'user',
+          content: text
+        });
+        messages.push({
+          type: 'ai',
+          content: res.result.aiReply,
+          hasAudio: res.result.hasAudio,
+          audioUrl: res.result.audioUrl
+        });
+        this.setData({ messages });
+      } else {
+        wx.showToast({
+          title: res.result.message || '发送失败',
+          icon: 'none'
+        });
+      }
+    } catch (err) {
+      console.error('发送消息失败:', err);
+      wx.showToast({
+        title: '发送失败',
+        icon: 'none'
+      });
+    } finally {
+      this.setData({ loading: false });
+    }
+  },
+
+  // 结束当前对话
+  endConversation() {
+    this.startNewConversation();
   }
 }); 

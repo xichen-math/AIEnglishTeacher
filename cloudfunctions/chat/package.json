@@ -9,7 +9,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "wx-server-sdk": "latest",
-    "axios": "^1.6.7"
+    "axios": "^0.21.1",
+    "microsoft-cognitiveservices-speech-sdk": "^1.31.0",
+    "wx-server-sdk": "~2.6.3"
   }
 }
