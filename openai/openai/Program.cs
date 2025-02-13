@@ -2,51 +2,31 @@
 // Install the .NET library via NuGet: dotnet add package Azure.AI.OpenAI --version 1.0.0-beta.5 
 using Azure;
 using Azure.AI.OpenAI;
-using Azure.Identity;
 using Microsoft.CognitiveServices.Speech;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Net;
-//ing Aspose.Slides;
-using System.Drawing.Imaging;
-using System.Windows.Forms;
-using Microsoft.Identity.Client;
-using System.Diagnostics.Tracing;
-//using Microsoft.Office.Interop.PowerPoint;
-using System.Runtime.InteropServices;
-//using Microsoft.Office.Core;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Presentation;
-using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Drawing;
-using Microsoft.Office.Interop.PowerPoint;
+using System.Text.Json;
+using AIEnglishTeacher.Shared;
 
 namespace OpenAI
 {
-    class Program
+    public class Program
     {
+        private static readonly IAudioCacheService _audioCacheService = new AudioCacheService();
 
         public static async Task<string> RecognizeSpeechAsync()
         {
             // Creates an instance of a speech config with specified subscription key and service region.
-            // Replace with your own subscription key // and service region (e.g., "westus").
             var config = SpeechConfig.FromSubscription("bd5f339e632b4544a1c9a300f80c1b0a", "eastus");
             SpeechRecognitionResult result;
 
             using (var recognizer = new SpeechRecognizer(config))
             {
                 Console.WriteLine("Say something...");
+                result = await recognizer.RecognizeOnceAsync();
 
-                // Starts speech recognition, and returns after a single utterance is recognized. The end of a
-                // single utterance is determined by listening for silence at the end or until a maximum of 15
-                // seconds of audio is processed.  The task returns the recognition text as result. 
-                // Note: Since RecognizeOnceAsync() returns only a single utterance, it is suitable only for single
-                // shot recognition like command or query. 
-                // For long-running multi-utterance recognition, use StartContinuousRecognitionAsync() instead.
-                 result = await recognizer.RecognizeOnceAsync();
-
-                // Checks result.
                 if (result.Reason == ResultReason.RecognizedSpeech)
                 {
                     Console.WriteLine($"We recognized: {result.Text}");
@@ -71,50 +51,52 @@ namespace OpenAI
             return result.Text;        
         }
 
-        public static async Task SynthesisToSpeakerAsync(string text)
+        public static async Task<byte[]> SynthesisToAudioDataAsync(string text)
         {
-            // To support Chinese Characters on Windows platform
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            try
             {
-                Console.InputEncoding = System.Text.Encoding.Unicode;
-                Console.OutputEncoding = System.Text.Encoding.Unicode;
-            }
-
-            // Creates an instance of a speech config with specified subscription key and service region.
-            // Replace with your own subscription key and service region (e.g., "westus").
-            // The default language is "en-us".
-            var config = SpeechConfig.FromSubscription("bd5f339e632b4544a1c9a300f80c1b0a", "eastus");
-
-            // Set the voice name, refer to https://aka.ms/speech/voices/neural for full list.
-            config.SpeechSynthesisVoiceName = "en-US-AriaNeural";
-
-            // Creates a speech synthesizer using the default speaker as audio output.
-            using (var synthesizer = new SpeechSynthesizer(config))
-            {
-
-                using (var result = await synthesizer.SpeakTextAsync(text))
+                if (Environment.OSVersion.Platform == PlatformID.Win32NT)
                 {
-                    if (result.Reason == ResultReason.SynthesizingAudioCompleted)
-                    {
-                        //Console.WriteLine($"Speech synthesized to speaker for text [{text}]");
-                    }
-                    else if (result.Reason == ResultReason.Canceled)
-                    {
-                        var cancellation = SpeechSynthesisCancellationDetails.FromResult(result);
-                        Console.WriteLine($"CANCELED: Reason={cancellation.Reason}");
+                    Console.InputEncoding = System.Text.Encoding.Unicode;
+                    Console.OutputEncoding = System.Text.Encoding.Unicode;
+                }
 
-                        if (cancellation.Reason == CancellationReason.Error)
+                Console.WriteLine($"[Debug] Starting speech synthesis for text: {text}");
+
+                var config = SpeechConfig.FromSubscription("bd5f339e632b4544a1c9a300f80c1b0a", "eastus");
+                config.SpeechSynthesisVoiceName = "en-US-AriaNeural";
+
+                using (var synthesizer = new SpeechSynthesizer(config))
+                {
+                    using (var result = await synthesizer.SpeakTextAsync(text))
+                    {
+                        if (result.Reason == ResultReason.SynthesizingAudioCompleted)
                         {
-                            Console.WriteLine($"CANCELED: ErrorCode={cancellation.ErrorCode}");
-                            Console.WriteLine($"CANCELED: ErrorDetails=[{cancellation.ErrorDetails}]");
-                            Console.WriteLine($"CANCELED: Did you update the subscription info?");
+                            Console.WriteLine($"[Debug] Speech synthesis completed successfully");
+                            return result.AudioData;
+                        }
+                        else if (result.Reason == ResultReason.Canceled)
+                        {
+                            var cancellation = SpeechSynthesisCancellationDetails.FromResult(result);
+                            Console.WriteLine($"[Error] Speech synthesis canceled: {cancellation.Reason}");
+
+                            if (cancellation.Reason == CancellationReason.Error)
+                            {
+                                Console.WriteLine($"[Error] ErrorCode={cancellation.ErrorCode}");
+                                Console.WriteLine($"[Error] ErrorDetails={cancellation.ErrorDetails}");
+                            }
+                            throw new Exception($"Speech synthesis canceled: {cancellation.Reason}");
                         }
                     }
                 }
-
-                // This is to give some time for the speaker to finish playing back the audio
-                //Console.WriteLine("Press any key to exit...");
-                Console.ReadKey();
+                Console.WriteLine($"[Warning] Speech synthesis completed but no audio data returned");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Error] Exception in SynthesisToAudioDataAsync: {ex.Message}");
+                Console.WriteLine($"[Error] Stack trace: {ex.StackTrace}");
+                throw; // 重新抛出异常，让上层处理
             }
         }
 
@@ -157,48 +139,80 @@ namespace OpenAI
 
         }
         
-        public static async Task<string> gpt_chat( List<ChatMessage> Messages_History)
+        public static async Task<string> gpt_chat(List<ChatMessage> Messages_History)
         {
-            OpenAIClient client = new OpenAIClient(
-            new Uri("https://tinyao.openai.azure.com/"),
-            new AzureKeyCredential("2d20693670634f3db62e0b89f3a91028"));
-            string filePath = @"C:\Users\tinyao\source\repos\openai\OpenAI\Prompt.txt";
-            
-            var chatCompletionOptions = new ChatCompletionsOptions();
-
-            foreach (var message in Messages_History)
+            try
             {
-                chatCompletionOptions.Messages.Add(message);
+                OpenAIClient client = new OpenAIClient(
+                    new Uri("https://tinyao.openai.azure.com/"),
+                    new AzureKeyCredential("2d20693670634f3db62e0b89f3a91028"));
+                
+                var chatCompletionOptions = new ChatCompletionsOptions();
+
+                foreach (var message in Messages_History)
+                {
+                    chatCompletionOptions.Messages.Add(message);
+                }
+
+                // 设置更严格的参数来控制回复
+                chatCompletionOptions.Temperature = (float)0.7;
+                chatCompletionOptions.FrequencyPenalty = (float)0.5;
+                chatCompletionOptions.PresencePenalty = (float)0.5;
+                chatCompletionOptions.MaxTokens = 100;
+                chatCompletionOptions.NucleusSamplingFactor = (float)0.95;
+                chatCompletionOptions.StopSequences.Add("(Pause for Emma's response)");
+
+                Response<ChatCompletions> completionsResponse = await client.GetChatCompletionsAsync(
+                    deploymentOrModelName: "TestGPT", chatCompletionOptions);
+
+                string response = completionsResponse.Value.Choices[0].Message.Content;
+                
+                if (response.Contains("(Pause for Emma's response)"))
+                {
+                    response = response.Split("(Pause for Emma's response)")[0].Trim();
+                }
+                
+                Console.WriteLine($"[Debug] raw response: {response}");
+
+                // 立即返回文本响应
+                var messageId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                var textResponse = JsonSerializer.Serialize(new
+                {
+                    aiReply = response,
+                    messageId = messageId,
+                    hasAudio = true  // 标记有音频将要生成
+                });
+
+                // 异步生成音频数据
+                _ = Task.Run(async () => {
+                    try {
+                        byte[] audioData = await SynthesisToAudioDataAsync(response);
+                        if (audioData != null)
+                        {
+                            string audioBase64 = Convert.ToBase64String(audioData);
+                            // 将音频数据存储到缓存中
+                            _audioCacheService.StoreAudioData(messageId, audioBase64);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Error] Audio generation failed: {ex.Message}");
+                    }
+                });
+
+                return textResponse;
             }
-
-            chatCompletionOptions.Temperature = (float)0.0;
-            chatCompletionOptions.FrequencyPenalty = (float)0;
-            chatCompletionOptions.PresencePenalty = (float)0;
-            chatCompletionOptions.MaxTokens = 800;
-            chatCompletionOptions.NucleusSamplingFactor = (float)0.95;
-
-
-            //chatCompletionOptions.StopSequences.Add("hi");
-
-            // If streaming is not selected
-            Response<ChatCompletions> completionsResponse = await client.GetChatCompletionsAsync(
-            deploymentOrModelName: "TestGPT", chatCompletionOptions);
-
-            /*new ChatCompletionsOptions()
+            catch (Exception ex)
             {
-
-                Messages = Messages_History,
-                Temperature = a,
-                MaxTokens = 800,
-                NucleusSamplingFactor = (float)0.95,
-                FrequencyPenalty = (float)0,
-                PresencePenalty = (float)0,
-            });*/
-
-            Console.WriteLine("Teacher:"+completionsResponse.Value.Choices[0].Message.Content);
-            return completionsResponse.Value.Choices[0].Message.Content;
-
-
+                Console.WriteLine($"[Error] Exception in gpt_chat: {ex.Message}");
+                Console.WriteLine($"[Error] Stack trace: {ex.StackTrace}");
+                
+                return JsonSerializer.Serialize(new
+                {
+                    error = true,
+                    message = "服务器内部错误，请稍后重试"
+                });
+            }
         }
         /*static void PlaySlide(string filePath, int slideIndexToPlay)
         {
@@ -376,6 +390,7 @@ namespace OpenAI
         }
     }
 }
+
 
 
 
