@@ -1,0 +1,15 @@
+<view class="container">
+  <!-- 推荐课程标题 -->
+  <view class="section-title">推荐课程</view>
+  
+  <!-- 推荐课程列表 -->
+  <view class="course-list">
+    <view class="course-item" wx:for="{{recommendCourses}}" wx:key="id" bindtap="onCourseSelect" data-course="{{item}}">
+      <image class="course-image" src="{{item.image}}" mode="aspectFill"></image>
+      <view class="course-info">
+        <text class="course-name">{{item.name}}</text>
+        <text class="course-desc">{{item.description}}</text>
+      </view>
+    </view>
+  </view>
+</view> 

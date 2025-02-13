@@ -1,11 +1,31 @@
 {
   "pages": [
-    "00_demo/wechat/pages/chat"
+    "pages/index/index",
+    "pages/chat/chat",
+    "pages/my/my"
   ],
   "window": {
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#ffffff",
-    "navigationBarTitleText": "WeChat",
+    "navigationBarBackgroundColor": "#fff",
+    "navigationBarTitleText": "AI英语教师",
     "navigationBarTextStyle": "black"
-  }
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#1296db",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "推荐"
+      },
+      {
+        "pagePath": "pages/my/my",
+        "text": "我的"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
 }

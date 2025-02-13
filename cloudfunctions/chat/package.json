@@ -1,0 +1,16 @@
+{
+  "name": "chat",
+  "version": "1.0.0",
+  "description": "AI英语教师聊天云函数",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.21.1",
+    "microsoft-cognitiveservices-speech-sdk": "^1.31.0",
+    "wx-server-sdk": "~2.6.3"
+  }
+}
