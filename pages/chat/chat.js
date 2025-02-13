@@ -6,10 +6,16 @@ Page({
     isRecording: false,
     scrollToMessage: '',
     recorderManager: null,
-    inputText: ''  // 文本输入内容
+    inputText: '',  // 文本输入内容
+    slides: [],
+    currentIndex: 0,
+    currentSlide: '',
+    isAutoPlaying: false,
+    autoPlayInterval: 3000,
+    isLoading: true,
   },
 
-  onLoad: function() {
+  onLoad: function(options) {
     // 初始化录音管理器
     this.recorderManager = wx.getRecorderManager();
     this.initRecorderManager();
@@ -20,6 +26,9 @@ Page({
       type: 'ai',
       content: `欢迎来到${course?.name || '基础英语会话'}课程，我是你的AI英语老师，让我们开始对话吧！`
     });
+
+    // 初始化PPT数据
+    this.initSlides();
   },
 
   /**
@@ -91,7 +100,6 @@ Page({
     };
 
     // 添加消息到列表
-    console.log('准备添加消息到列表');
     this.addMessage(aiMessage);
   },
 
@@ -115,7 +123,7 @@ Page({
     const messages = this.data.messages;
     const newMessageId = messages.length + 1;
 
-    // 直接更新消息列表，添加用户消息
+    // 添加用户消息
     messages.push({
       type: 'user',
       content: userText,
@@ -123,7 +131,6 @@ Page({
       id: newMessageId
     });
 
-    // 一次性更新状态
     this.setData({
       messages,
       inputText: '',
@@ -136,6 +143,10 @@ Page({
       data: {
         text: userText,
         userId: app.globalData.userId
+        // 暂时移除这些参数，因为后端可能还没准备好处理
+        // courseId: app.globalData.selectedCourse?.id,
+        // courseName: app.globalData.selectedCourse?.name,
+        // currentSlide: this.data.currentIndex + 1
       },
       success: (res) => {
         console.log('云函数调用成功:', res.result);
@@ -153,37 +164,19 @@ Page({
           type: 'ai',
           content: res.result.aiReply,
           messageId: res.result.messageId,
-          id: newMessageId + 1,
-          hasAudio: res.result.hasAudio,
-          audioFileID: res.result.audioFileID
+          id: newMessageId + 1
         });
 
-        // 更新界面
         this.setData({
           messages,
           scrollToMessage: `msg-${newMessageId + 1}`
         });
-
-        // 如果有音频，自动播放
-        if (res.result.hasAudio && res.result.audioFileID) {
-          this.playCloudAudio(res.result.audioFileID);
-        }
       },
       fail: (error) => {
         console.error('云函数调用失败:', error);
-        // 显示具体错误信息
-        let errorMsg = '发送失败';
-        if (error.errMsg) {
-          if (error.errMsg.includes('cloud function execute timeout')) {
-            errorMsg = '请求超时，请重试';
-          } else if (error.errMsg.includes('not exist')) {
-            errorMsg = '云函数未找到，请检查部署';
-          }
-        }
         wx.showToast({
-          title: errorMsg,
-          icon: 'none',
-          duration: 2000
+          title: '发送失败',
+          icon: 'none'
         });
       }
     });
@@ -467,5 +460,92 @@ Page({
 
     // 返回首页
     wx.navigateBack();
-  }
+  },
+
+  onUnload: function() {
+    // 页面卸载时清理定时器
+    this.stopAutoPlay();
+  },
+
+  // 初始化PPT数据
+  initSlides: async function() {
+    try {
+      wx.showLoading({
+        title: '加载课件中...'
+      });
+      
+      // 使用新的文件路径
+      const slides = [
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lesson1/Slide1.JPG',
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lesson1/Slide2.JPG',
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lesson1/Slide3.JPG',
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lesson1/Slide4.JPG',
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lesson1/Slide5.JPG'
+      ];
+      
+      this.setData({
+        slides,
+        currentSlide: slides[0],
+        isLoading: false
+      });
+    } catch (error) {
+      console.error('加载PPT失败:', error);
+      wx.showToast({
+        title: '加载课件失败',
+        icon: 'none'
+      });
+    } finally {
+      wx.hideLoading();
+    }
+  },
+
+  // PPT控制函数
+  nextSlide: function() {
+    const { currentIndex, slides } = this.data;
+    if (currentIndex < slides.length - 1) {
+      this.setData({
+        currentIndex: currentIndex + 1,
+        currentSlide: slides[currentIndex + 1]
+      });
+    }
+  },
+
+  prevSlide: function() {
+    const { currentIndex, slides } = this.data;
+    if (currentIndex > 0) {
+      this.setData({
+        currentIndex: currentIndex - 1,
+        currentSlide: slides[currentIndex - 1]
+      });
+    }
+  },
+
+  toggleAutoPlay: function() {
+    const { isAutoPlaying } = this.data;
+    if (!isAutoPlaying) {
+      this.startAutoPlay();
+    } else {
+      this.stopAutoPlay();
+    }
+  },
+
+  startAutoPlay: function() {
+    this.autoPlayTimer = setInterval(() => {
+      const { currentIndex, slides } = this.data;
+      if (currentIndex >= slides.length - 1) {
+        this.stopAutoPlay();
+        return;
+      }
+      this.nextSlide();
+    }, this.data.autoPlayInterval);
+    this.setData({ isAutoPlaying: true });
+  },
+
+  stopAutoPlay: function() {
+    if (this.autoPlayTimer) {
+      clearInterval(this.autoPlayTimer);
+      this.autoPlayTimer = null;
+    }
+    this.setData({ isAutoPlaying: false });
+  },
 }); 
