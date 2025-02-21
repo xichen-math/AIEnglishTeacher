@@ -4,16 +4,16 @@
   height: 100vh;
   background-color: #f5f5f5;
   box-sizing: border-box;
-  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .chat-list {
   flex: 1;
-  padding: 20rpx 40rpx;
+  padding: 10rpx;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   box-sizing: border-box;
-  width: 100%;
+  height: calc(30vh - 180rpx);
+  background: #fff;
 }
 
 .message-list {
@@ -62,9 +62,9 @@
 }
 
 .footer {
-  padding: 20rpx;
-  background-color: #fff;
-  border-top: 1rpx solid #eee;
+  padding: 10rpx 20rpx;
+  background: #fff;
+  border-top: 1px solid #eee;
 }
 
 .input-area {
@@ -129,4 +129,117 @@
   background-color: #999;
   color: #fff;
   border-radius: 40rpx;
+}
+
+.ppt-container {
+  width: 100%;
+  height: 70vh;
+  background: #000;
+  margin: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ppt-slide {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ppt-controls {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 20rpx;
+  transform: translateY(-50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.arrow-btn {
+  width: 60rpx;
+  height: 60rpx;
+  background: rgba(0, 0, 0, 0.2);
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.arrow-btn:active {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.ppt-container:hover .ppt-controls {
+  opacity: 1;
+}
+
+/* 全屏按钮样式 */
+.fullscreen-btn {
+  position: absolute;
+  right: 20rpx;
+  bottom: 20rpx;
+  width: 60rpx;
+  height: 60rpx;
+  background: rgba(0, 0, 0, 0.2);
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  cursor: pointer;
+  z-index: 100;
+}
+
+.fullscreen-btn:active {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* 横屏时的样式 */
+@media screen and (orientation: landscape) {
+  .chat-container {
+    flex-direction: column;
+    height: 100vh;
+    background: #000;
+    position: relative;
+  }
+
+  /* PPT区域 */
+  .ppt-container {
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    margin: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ppt-slide {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  /* 隐藏聊天相关元素 */
+  .chat-list,
+  .footer,
+  .input-area,
+  .controls {
+    display: none;
+  }
+
+  .fullscreen-btn {
+    display: none;
+  }
 } 

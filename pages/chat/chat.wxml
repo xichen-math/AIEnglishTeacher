@@ -1,5 +1,16 @@
 <view class="chat-container">
-  <!-- 聊天消息列表 -->
+  <!-- PPT 显示区域 -->
+  <view class="ppt-container">
+    <image class="ppt-slide" src="{{currentSlide}}" mode="aspectFit"></image>
+    <view class="ppt-controls">
+      <view class="arrow-btn prev" bindtap="prevSlide" hidden="{{currentIndex === 0}}">◀</view>
+      <view class="arrow-btn next" bindtap="nextSlide" hidden="{{currentIndex === slides.length - 1}}">▶</view>
+    </view>
+    <!-- 添加全屏按钮 -->
+    <view class="fullscreen-btn" bindtap="toggleFullscreen">⤢</view>
+  </view>
+
+  <!-- 聊天区域 -->
   <scroll-view class="chat-list" scroll-y="true" scroll-into-view="{{scrollToMessage}}" scroll-with-animation="true">
     <view class="message-list">
       <block wx:for="{{messages}}" wx:key="id">
