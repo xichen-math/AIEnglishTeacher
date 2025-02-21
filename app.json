@@ -8,7 +8,8 @@
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#fff",
     "navigationBarTitleText": "AI英语教师",
-    "navigationBarTextStyle": "black"
+    "navigationBarTextStyle": "black",
+    "pageOrientation": "auto"
   },
   "tabBar": {
     "color": "#999999",
