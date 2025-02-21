@@ -7,7 +7,11 @@ Page({
     scrollToMessage: '',
     recorderManager: null,
     inputText: '',  // 文本输入内容
-    conversationId: null  // 当前对话ID
+    conversationId: null,  // 当前对话ID
+    slides: [],
+    currentIndex: 0,
+    currentSlide: '',
+    isLoading: true
   },
 
   onLoad: function() {
@@ -35,6 +39,9 @@ Page({
     });
 
     console.log('初始化完成，会话ID:', conversationId);
+
+    // 初始化PPT
+    this.initSlides();
   },
 
   /**
@@ -541,5 +548,65 @@ Page({
   // 结束当前对话
   endConversation() {
     this.startNewConversation();
+  },
+
+  // 初始化PPT
+  initSlides: async function() {
+    try {
+      wx.showLoading({
+        title: '加载课件中...'
+      });
+      
+      const slides = [
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lesson1/Slide1.JPG',
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lesson1/Slide2.JPG',
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lesson1/Slide3.JPG',
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lesson1/Slide4.JPG',
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lesson1/Slide5.JPG'
+      ];
+      
+      this.setData({
+        slides,
+        currentSlide: slides[0],
+        isLoading: false
+      });
+    } catch (error) {
+      console.error('加载PPT失败:', error);
+      wx.showToast({
+        title: '加载课件失败',
+        icon: 'none'
+      });
+    } finally {
+      wx.hideLoading();
+    }
+  },
+
+  // 下一页
+  nextSlide: function() {
+    const { currentIndex, slides } = this.data;
+    if (currentIndex < slides.length - 1) {
+      this.setData({
+        currentIndex: currentIndex + 1,
+        currentSlide: slides[currentIndex + 1]
+      });
+    }
+  },
+
+  // 上一页
+  prevSlide: function() {
+    const { currentIndex, slides } = this.data;
+    if (currentIndex > 0) {
+      this.setData({
+        currentIndex: currentIndex - 1,
+        currentSlide: slides[currentIndex - 1]
+      });
+    }
+  },
+
+  // 切换全屏
+  toggleFullscreen: function() {
+    wx.setPageOrientation({
+      orientation: 'landscape'
+    });
   }
 }); 
