@@ -1,6 +1,0 @@
-@AIEnglishTeacher.API_HostAddress = http://localhost:5101
-
-GET {{AIEnglishTeacher.API_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
