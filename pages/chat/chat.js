@@ -11,7 +11,10 @@ Page({
     slides: [],
     currentIndex: 0,
     currentSlide: '',
-    isLoading: true
+    isLoading: true,
+    wordCoordinates: {},  // 改为空对象，等待加载
+    highlightedWords: [],  // 添加数组来存储需要高亮的单词
+    lessonTitle: ''
   },
 
   onLoad: function() {
@@ -42,6 +45,19 @@ Page({
 
     // 初始化PPT
     this.initSlides();
+
+    // 加载坐标信息
+    this.loadCoordinates();
+
+    // 初始化 canvas
+    const query = wx.createSelectorQuery();
+    query.select('#pptCanvas')
+      .fields({ node: true, size: true })
+      .exec((res) => {
+        const canvas = res[0].node;
+        canvas.width = 750;  // 设置 canvas 宽度
+        canvas.height = 1000;  // 设置 canvas 高度
+      });
   },
 
   /**
@@ -123,15 +139,6 @@ Page({
   sendTextMessage: function() {
     if (!this.data.inputText.trim()) return;
 
-    // 检查网络状态
-    if (!app.globalData.isConnected) {
-      wx.showToast({
-        title: '网络未连接',
-        icon: 'none'
-      });
-      return;
-    }
-
     const userText = this.data.inputText.trim();
     const messageId = Date.now();
     const messages = this.data.messages;
@@ -145,12 +152,14 @@ Page({
       id: newMessageId
     });
 
-    // 一次性更新状态
-    this.setData({
-      messages,
-      inputText: '',
-      scrollToMessage: `msg-${newMessageId}`
-    });
+    // 检查网络状态
+    if (!app.globalData.isConnected) {
+      wx.showToast({
+        title: '网络未连接',
+        icon: 'none'
+      });
+      return;
+    }
 
     // 调用云函数
     console.log('准备调用云函数，参数:', {
@@ -177,10 +186,32 @@ Page({
           return;
         }
 
+        // 检查 AI 回复中是否包含需要高亮的单词
+        const aiReply = res.result.aiReply;
+        const wordCoordinates = this.data.wordCoordinates;
+        const lowerReply = aiReply.toLowerCase();
+        
+        console.log('AI回复:', lowerReply);
+        console.log('可用的单词列表:', Object.keys(wordCoordinates));
+        console.log('wordCoordinates 内容:', wordCoordinates);
+
+        // 检查每个在坐标文件中定义的单词
+        Object.keys(wordCoordinates).forEach(word => {
+          console.log('正在检查单词:', word);
+          console.log('检查是否包含:', word.toLowerCase(), '在', lowerReply);
+          if (lowerReply.includes(word.toLowerCase())) {
+            console.log('AI回复中检测到单词:', word);
+            console.log('单词坐标:', wordCoordinates[word]);
+            this.highlightWord(word);
+          } else {
+            console.log('未检测到单词:', word);
+          }
+        });
+
         // 添加AI回复到消息列表
         messages.push({
           type: 'ai',
-          content: res.result.aiReply,
+          content: aiReply,
           messageId: res.result.messageId,
           id: newMessageId + 1,
           hasAudio: res.result.hasAudio,
@@ -353,69 +384,77 @@ Page({
   /**
    * 发送语音到服务器
    */
-  sendVoiceToServer: function(filePath) {
+  sendVoiceToServer: async function(filePath) {
     const messageId = Date.now();
     const messages = this.data.messages;
     const newMessageId = messages.length + 1;
 
-    wx.uploadFile({
-      url: `${app.globalData.baseUrl}/api/chat`,
-      filePath: filePath,
-      name: 'audio',
-      formData: {},
-      header: {
-        'X-User-Id': app.globalData.userId || 'default-user'
-      },
-      success: (res) => {
-        try {
-          const response = JSON.parse(res.data);
-          
-          if (response.userText) {
-            // 添加用户消息
-            messages.push({
-              type: 'user',
-              content: response.userText,
-              messageId: messageId,
-              id: newMessageId
-            });
+    try {
+      // 1. 先将录音文件上传到云存储
+      const uploadRes = await wx.cloud.uploadFile({
+        cloudPath: `audio/${this.data.conversationId}/${messageId}.mp3`,
+        filePath: filePath
+      });
 
-            if (response.aiReply) {
-              // 添加AI回复
-              messages.push({
-                type: 'ai',
-                content: response.aiReply,
-                messageId: response.messageId,
-                id: newMessageId + 1
-              });
+      if (!uploadRes.fileID) {
+        throw new Error('上传录音失败');
+      }
 
-              // 立即更新界面
-              this.setData({
-                messages,
-                scrollToMessage: `msg-${newMessageId + 1}`
-              });
-
-              // 如果有音频，开始轮询获取音频数据
-              if (response.hasAudio) {
-                this.pollAudioData(response.messageId);
-              }
-            }
-          }
-        } catch (e) {
-          console.error('解析响应失败:', e);
-          wx.showToast({
-            title: '响应格式错误',
-            icon: 'none'
-          });
+      // 2. 调用云函数处理语音
+      const res = await wx.cloud.callFunction({
+        name: 'chat',
+        data: {
+          audioFileId: uploadRes.fileID,
+          userId: app.globalData.userId,
+          conversationId: this.data.conversationId,
+          isAudio: true
         }
-      },
-      fail: (error) => {
-        console.error('发送语音失败:', error);
-        wx.showToast({
-          title: '发送失败',
-          icon: 'none'
+      });
+
+      if (res.result.error) {
+        throw new Error(res.result.message || '处理失败');
+      }
+
+      // 3. 添加用户消息
+      if (res.result.userText) {
+        messages.push({
+          type: 'user',
+          content: res.result.userText,
+          messageId: messageId,
+          id: newMessageId
         });
       }
-    });
+
+      // 4. 添加AI回复
+      if (res.result.aiReply) {
+        messages.push({
+          type: 'ai',
+          content: res.result.aiReply,
+          messageId: res.result.messageId,
+          id: newMessageId + 1,
+          hasAudio: res.result.hasAudio,
+          audioUrl: res.result.audioUrl
+        });
+      }
+
+      // 5. 更新界面
+      this.setData({
+        messages,
+        scrollToMessage: `msg-${newMessageId + 1}`
+      });
+
+      // 6. 如果有音频回复，播放
+      if (res.result.hasAudio && res.result.audioUrl) {
+        this.playCloudAudio(res.result.audioUrl);
+      }
+
+    } catch (error) {
+      console.error('发送语音失败:', error);
+      wx.showToast({
+        title: error.message || '发送失败',
+        icon: 'none'
+      });
+    }
   },
 
   /**
@@ -608,5 +647,130 @@ Page({
     wx.setPageOrientation({
       orientation: 'landscape'
     });
+  },
+
+  // 添加高亮单词的函数
+  highlightWord: function(word) {
+    // 转换为小写以进行不区分大小写的匹配
+    const wordLower = word.toLowerCase();
+    const coordinates = this.data.wordCoordinates[wordLower];
+    if (!coordinates) {
+      console.log('未找到坐标信息:', word);
+      return;
+    }
+
+    // 清空高亮单词数组并添加当前单词
+    const newHighlightedWords = [{
+      word: wordLower,
+      coordinates: coordinates
+    }];
+    
+    this.setData({
+      highlightedWords: newHighlightedWords
+    });
+
+    const query = wx.createSelectorQuery();
+    query.select('#pptCanvas').fields({ node: true, size: true })
+      .select('.ppt-slide').boundingClientRect()
+      .select('.ppt-container').boundingClientRect()
+      .exec((res) => {
+        if (!res[0] || !res[1] || !res[2]) {
+          console.error('未找到元素');
+          return;
+        }
+
+        const canvas = res[0].node;
+        const imageRect = res[1];
+        const containerRect = res[2];
+
+        const containerWidth = containerRect.width;
+        const containerHeight = containerRect.height;
+        const imageRatio = 1280 / 720;
+        const containerRatio = containerWidth / containerHeight;
+
+        let scaledWidth, scaledHeight, offsetX = 0, offsetY = 0;
+
+        if (containerRatio > imageRatio) {
+          scaledHeight = containerHeight;
+          scaledWidth = containerHeight * imageRatio;
+          offsetX = (containerWidth - scaledWidth) / 2;
+        } else {
+          scaledWidth = containerWidth;
+          scaledHeight = containerWidth / imageRatio;
+          offsetY = (containerHeight - scaledHeight) / 2;
+        }
+
+        const scaleX = scaledWidth / 1280;
+        const scaleY = scaledHeight / 720;
+
+        const ctx = canvas.getContext('2d');
+        canvas.width = containerWidth;
+        canvas.height = containerHeight;
+
+        // 清除画布
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 绘制当前高亮框
+        const padding = 10;
+        const scaledX1 = coordinates.x1 * scaleX + offsetX - padding;
+        const scaledY1 = coordinates.y1 * scaleY + offsetY - padding;
+        const scaledX2 = coordinates.x2 * scaleX + offsetX + padding;
+        const scaledY2 = coordinates.y2 * scaleY + offsetY + padding;
+
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(
+          scaledX1,
+          scaledY1,
+          scaledX2 - scaledX1,
+          scaledY2 - scaledY1
+        );
+      });
+  },
+
+  // 加载坐标信息
+  loadCoordinates: async function() {
+    try {
+      console.log('开始下载坐标文件...');
+      const result = await wx.cloud.downloadFile({
+        fileID: 'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/coordinates.json'
+      });
+      console.log('文件下载结果:', result);
+
+      const fs = wx.getFileSystemManager();
+      let fileContent;
+      try {
+        fileContent = fs.readFileSync(result.tempFilePath, 'utf8');
+        console.log('读取到的文件内容:', fileContent);
+      } catch (readError) {
+        console.error('读取文件失败:', readError);
+        throw readError;
+      }
+
+      let coordinates;
+      try {
+        coordinates = JSON.parse(fileContent);
+        console.log('JSON解析结果:', coordinates);
+      } catch (parseError) {
+        console.error('JSON解析失败:', parseError);
+        throw parseError;
+      }
+
+      if (!coordinates || !coordinates.Lesson1 || !coordinates.Lesson1.Slide1) {
+        throw new Error('坐标文件格式不正确，缺少必要的数据结构');
+      }
+
+      this.setData({
+        wordCoordinates: coordinates['Lesson1']['Slide1']
+      });
+
+    } catch (error) {
+      console.error('加载坐标信息失败:', error);
+      wx.showToast({
+        title: '加载坐标失败: ' + error.message,
+        icon: 'none',
+        duration: 2000
+      });
+    }
   }
 }); 
