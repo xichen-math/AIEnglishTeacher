@@ -12,7 +12,7 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   box-sizing: border-box;
-  height: calc(30vh - 180rpx);
+  height: calc(33.33vh - 180rpx);
   background: #fff;
 }
 
@@ -133,13 +133,9 @@
 
 .ppt-container {
   width: 100%;
-  height: 70vh;
-  background: #000;
-  margin: 0;
+  height: 66.67vh;
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
 }
 
 .ppt-slide {
@@ -242,4 +238,14 @@
   .fullscreen-btn {
     display: none;
   }
+}
+
+.ppt-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
 } 

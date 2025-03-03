@@ -2,6 +2,7 @@
   <!-- PPT 显示区域 -->
   <view class="ppt-container">
     <image class="ppt-slide" src="{{currentSlide}}" mode="aspectFit"></image>
+    <canvas type="2d" id="pptCanvas" class="ppt-canvas"></canvas>
     <view class="ppt-controls">
       <view class="arrow-btn prev" bindtap="prevSlide" hidden="{{currentIndex === 0}}">◀</view>
       <view class="arrow-btn next" bindtap="nextSlide" hidden="{{currentIndex === slides.length - 1}}">▶</view>
