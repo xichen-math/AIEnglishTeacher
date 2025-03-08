@@ -137,37 +137,32 @@ Page({
    * 发送文本消息
    */
   sendTextMessage: function() {
-    if (!this.data.inputText.trim()) return;
-
-    const userText = this.data.inputText.trim();
-    const messageId = Date.now();
-    const messages = this.data.messages;
-    const newMessageId = messages.length + 1;
-
-    // 直接更新消息列表，添加用户消息
-    messages.push({
-      type: 'user',
-      content: userText,
-      messageId: messageId,
-      id: newMessageId
-    });
-
-    // 检查网络状态
-    if (!app.globalData.isConnected) {
-      wx.showToast({
-        title: '网络未连接',
-        icon: 'none'
-      });
+    if (!this.data.inputText.trim()) {
       return;
     }
 
-    // 调用云函数
-    console.log('准备调用云函数，参数:', {
-      text: userText,
-      userId: app.globalData.userId,
-      conversationId: this.data.conversationId
+    const userText = this.data.inputText;
+    const messages = this.data.messages;
+    const newMessageId = messages.length + 1;
+
+    // 立即添加用户消息并清空输入框
+    messages.push({
+      type: 'user',
+      content: userText,
+      messageId: Date.now(),
+      id: newMessageId
     });
 
+    this.setData({
+      messages,
+      inputText: '',  // 清空输入框
+      scrollToMessage: `msg-${newMessageId}`
+    });
+
+    // 显示AI正在输入的提示
+    wx.showNavigationBarLoading();
+
+    // 调用云函数获取AI回复
     wx.cloud.callFunction({
       name: 'chat',
       data: {
@@ -176,66 +171,46 @@ Page({
         conversationId: this.data.conversationId
       },
       success: (res) => {
-        console.log('云函数调用成功:', res.result);
         if (res.result.error) {
-          console.error('云函数返回错误:', res.result);
           wx.showToast({
-            title: res.result.message || '处理失败',
+            title: res.result.message || '发送失败',
             icon: 'none'
           });
           return;
         }
 
-        // 检查 AI 回复中是否包含需要高亮的单词
-        const aiReply = res.result.aiReply;
-        const wordCoordinates = this.data.wordCoordinates;
-        const lowerReply = aiReply.toLowerCase();
-        
-        console.log('AI回复:', lowerReply);
-        console.log('可用的单词列表:', Object.keys(wordCoordinates));
-        console.log('wordCoordinates 内容:', wordCoordinates);
+        // 添加AI回复
+        if (res.result.aiReply) {
+          messages.push({
+            type: 'ai',
+            content: res.result.aiReply,
+            messageId: res.result.messageId,
+            id: newMessageId + 1
+          });
 
-        // 检查每个在坐标文件中定义的单词
-        Object.keys(wordCoordinates).forEach(word => {
-          console.log('正在检查单词:', word);
-          console.log('检查是否包含:', word.toLowerCase(), '在', lowerReply);
-          if (lowerReply.includes(word.toLowerCase())) {
-            console.log('AI回复中检测到单词:', word);
-            console.log('单词坐标:', wordCoordinates[word]);
-            this.highlightWord(word);
-          } else {
-            console.log('未检测到单词:', word);
-          }
-        });
+          this.setData({
+            messages,
+            scrollToMessage: `msg-${newMessageId + 1}`
+          });
 
-        // 添加AI回复到消息列表
-        messages.push({
-          type: 'ai',
-          content: aiReply,
-          messageId: res.result.messageId,
-          id: newMessageId + 1,
-          hasAudio: res.result.hasAudio,
-          audioUrl: res.result.audioUrl
-        });
-
-        // 更新界面
-        this.setData({
-          messages,
-          scrollToMessage: `msg-${newMessageId + 1}`
-        });
-
-        // 如果有音频，自动播放
-        if (res.result.hasAudio && res.result.audioUrl) {
-          this.playCloudAudio(res.result.audioUrl);
+          // 检查回复中的关键词
+          const lowerReply = res.result.aiReply.toLowerCase();
+          Object.keys(this.data.wordCoordinates).forEach(word => {
+            if (lowerReply.includes(word.toLowerCase())) {
+              this.highlightWord(word);
+            }
+          });
         }
       },
       fail: (error) => {
-        console.error('云函数调用失败:', error);
+        console.error('发送失败:', error);
         wx.showToast({
           title: '发送失败',
-          icon: 'none',
-          duration: 2000
+          icon: 'none'
         });
+      },
+      complete: () => {
+        wx.hideNavigationBarLoading();
       }
     });
   },
