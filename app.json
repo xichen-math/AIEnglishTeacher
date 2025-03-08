@@ -9,7 +9,7 @@
     "navigationBarBackgroundColor": "#fff",
     "navigationBarTitleText": "AI英语教师",
     "navigationBarTextStyle": "black",
-    "pageOrientation": "auto"
+    "pageOrientation": "portrait"
   },
   "tabBar": {
     "color": "#999999",
