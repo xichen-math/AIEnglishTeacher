@@ -15,7 +15,8 @@ Page({
     wordCoordinates: {},  // 改为空对象，等待加载
     highlightedWords: [],  // 添加数组来存储需要高亮的单词
     lessonTitle: '',
-    isFullscreenTriggered: false
+    isFullscreenTriggered: false,
+    showChat: true
   },
 
   onLoad: function() {
@@ -49,16 +50,6 @@ Page({
 
     // 加载坐标信息
     this.loadCoordinates();
-
-    // 初始化 canvas
-    const query = wx.createSelectorQuery();
-    query.select('#pptCanvas')
-      .fields({ node: true, size: true })
-      .exec((res) => {
-        const canvas = res[0].node;
-        canvas.width = 750;  // 设置 canvas 宽度
-        canvas.height = 1000;  // 设置 canvas 高度
-      });
 
     // 初始化屏幕方向为竖屏
     wx.setPageOrientation({
@@ -628,6 +619,7 @@ Page({
     wx.setPageOrientation({
       orientation: 'landscape',
       success: () => {
+        this.isFullscreenTriggered = true;
         setTimeout(() => {
           // 重新绘制当前高亮的单词
           if (this.data.highlightedWords && this.data.highlightedWords.length > 0) {
@@ -789,28 +781,46 @@ Page({
     }
   },
 
-  // 添加页面卸载的生命周期函数
-  onUnload: function() {
-    wx.setPageOrientation({
-      orientation: 'portrait'  // 强制竖屏
-    });
-    this.isFullscreenTriggered = false;
-  },
-
-  // 添加返回按钮监听
+  // 监听返回按钮事件
   onBackPress: function() {
-    // 如果当前是横屏状态，先切回竖屏
+    // 如果是横屏状态，切换回竖屏并继续播放PPT
     if (this.isFullscreenTriggered) {
       wx.setPageOrientation({
         orientation: 'portrait',
         success: () => {
           this.isFullscreenTriggered = false;
+          // 重新绘制当前高亮的单词
+          if (this.data.highlightedWords && this.data.highlightedWords.length > 0) {
+            const word = this.data.highlightedWords[0].word;
+            this.highlightWord(word);
+          }
         }
       });
-      // 返回 true 表示阻止默认的返回行为
-      return true;
+      return true;  // 阻止返回到首页
     }
-    // 返回 false 表示使用默认的返回行为
+
+    // 只有在竖屏状态下点击返回才返回到首页
     return false;
+  },
+
+  // 处理返回按钮点击
+  handleBack: function() {
+    if (this.isFullscreenTriggered) {
+      // 如果是横屏状态，切换回竖屏
+      wx.setPageOrientation({
+        orientation: 'portrait',
+        success: () => {
+          this.isFullscreenTriggered = false;
+          // 重新绘制当前高亮的单词
+          if (this.data.highlightedWords && this.data.highlightedWords.length > 0) {
+            const word = this.data.highlightedWords[0].word;
+            this.highlightWord(word);
+          }
+        }
+      });
+    } else {
+      // 如果是竖屏状态，返回上一页
+      wx.navigateBack();
+    }
   }
 }); 
