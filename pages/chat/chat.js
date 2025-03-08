@@ -14,7 +14,8 @@ Page({
     isLoading: true,
     wordCoordinates: {},  // 改为空对象，等待加载
     highlightedWords: [],  // 添加数组来存储需要高亮的单词
-    lessonTitle: ''
+    lessonTitle: '',
+    isFullscreenTriggered: false
   },
 
   onLoad: function() {
@@ -58,6 +59,11 @@ Page({
         canvas.width = 750;  // 设置 canvas 宽度
         canvas.height = 1000;  // 设置 canvas 高度
       });
+
+    // 初始化屏幕方向为竖屏
+    wx.setPageOrientation({
+      orientation: 'portrait'
+    });
   },
 
   /**
@@ -620,7 +626,16 @@ Page({
   // 切换全屏
   toggleFullscreen: function() {
     wx.setPageOrientation({
-      orientation: 'landscape'
+      orientation: 'landscape',
+      success: () => {
+        setTimeout(() => {
+          // 重新绘制当前高亮的单词
+          if (this.data.highlightedWords && this.data.highlightedWords.length > 0) {
+            const word = this.data.highlightedWords[0].word;
+            this.highlightWord(word);
+          }
+        }, 300);
+      }
     });
   },
 
@@ -634,73 +649,98 @@ Page({
       return;
     }
 
-    // 清空高亮单词数组并添加当前单词
-    const newHighlightedWords = [{
-      word: wordLower,
-      coordinates: coordinates
-    }];
-    
     this.setData({
-      highlightedWords: newHighlightedWords
+      highlightedWords: [{
+        word: wordLower,
+        coordinates: coordinates
+      }]
     });
 
-    const query = wx.createSelectorQuery();
-    query.select('#pptCanvas').fields({ node: true, size: true })
-      .select('.ppt-slide').boundingClientRect()
-      .select('.ppt-container').boundingClientRect()
-      .exec((res) => {
-        if (!res[0] || !res[1] || !res[2]) {
-          console.error('未找到元素');
-          return;
-        }
+    // 使用 nextTick 确保在下一帧绘制
+    wx.nextTick(() => {
+      const query = wx.createSelectorQuery();
+      query.select('#pptCanvas')
+        .fields({ node: true, size: true })
+        .select('.ppt-slide')
+        .boundingClientRect()
+        .select('.ppt-container')
+        .boundingClientRect()
+        .exec((res) => {
+          if (!res[0] || !res[1] || !res[2]) {
+            console.error('未找到元素');
+            return;
+          }
 
-        const canvas = res[0].node;
-        const imageRect = res[1];
-        const containerRect = res[2];
+          const canvas = res[0].node;
+          const ctx = canvas.getContext('2d');
 
-        const containerWidth = containerRect.width;
-        const containerHeight = containerRect.height;
-        const imageRatio = 1280 / 720;
-        const containerRatio = containerWidth / containerHeight;
+          // 先清除画布
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        let scaledWidth, scaledHeight, offsetX = 0, offsetY = 0;
+          const imageRect = res[1];
+          const containerRect = res[2];
 
-        if (containerRatio > imageRatio) {
-          scaledHeight = containerHeight;
-          scaledWidth = containerHeight * imageRatio;
-          offsetX = (containerWidth - scaledWidth) / 2;
-        } else {
-          scaledWidth = containerWidth;
-          scaledHeight = containerWidth / imageRatio;
-          offsetY = (containerHeight - scaledHeight) / 2;
-        }
+          // 检查是否横屏
+          const isLandscape = containerRect.width > containerRect.height;
 
-        const scaleX = scaledWidth / 1280;
-        const scaleY = scaledHeight / 720;
+          const containerWidth = containerRect.width;
+          const containerHeight = containerRect.height;
+          const imageRatio = 1280 / 720;
 
-        const ctx = canvas.getContext('2d');
-        canvas.width = containerWidth;
-        canvas.height = containerHeight;
+          let scaledWidth, scaledHeight, offsetX = 0, offsetY = 0;
 
-        // 清除画布
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+          if (isLandscape) {
+            // 横屏模式下的计算
+            // 始终以高度为基准计算，确保完整显示
+            scaledHeight = containerHeight;
+            scaledWidth = containerHeight * imageRatio;
+            // 确保水平居中
+            offsetX = Math.max(0, (containerWidth - scaledWidth) / 2);
+            offsetY = 0;
+          } else {
+            // 竖屏模式下的计算
+            if (containerWidth / containerHeight > imageRatio) {
+              scaledHeight = containerHeight;
+              scaledWidth = containerHeight * imageRatio;
+              offsetX = (containerWidth - scaledWidth) / 2;
+            } else {
+              scaledWidth = containerWidth;
+              scaledHeight = containerWidth / imageRatio;
+              offsetY = (containerHeight - scaledHeight) / 2;
+            }
+          }
 
-        // 绘制当前高亮框
-        const padding = 10;
-        const scaledX1 = coordinates.x1 * scaleX + offsetX - padding;
-        const scaledY1 = coordinates.y1 * scaleY + offsetY - padding;
-        const scaledX2 = coordinates.x2 * scaleX + offsetX + padding;
-        const scaledY2 = coordinates.y2 * scaleY + offsetY + padding;
+          const scaleX = scaledWidth / 1280;
+          const scaleY = scaledHeight / 720;
 
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(
-          scaledX1,
-          scaledY1,
-          scaledX2 - scaledX1,
-          scaledY2 - scaledY1
-        );
-      });
+          canvas.width = containerWidth;
+          canvas.height = containerHeight;
+
+          // 绘制当前高亮框
+          const padding = isLandscape ? 20 : 10;
+          const scaledX1 = coordinates.x1 * scaleX + offsetX - padding;
+          const scaledY1 = coordinates.y1 * scaleY + offsetY - padding;
+          const scaledX2 = coordinates.x2 * scaleX + offsetX + padding;
+          const scaledY2 = coordinates.y2 * scaleY + offsetY + padding;
+
+          ctx.strokeStyle = '#FF0000';
+          ctx.lineWidth = isLandscape ? 4 : 3;
+          ctx.strokeRect(
+            scaledX1,
+            scaledY1,
+            scaledX2 - scaledX1,
+            scaledY2 - scaledY1
+          );
+
+          console.log('绘制高亮框:', {
+            isLandscape,
+            containerSize: { width: containerWidth, height: containerHeight },
+            scaledSize: { width: scaledWidth, height: scaledHeight },
+            offset: { x: offsetX, y: offsetY },
+            coordinates: { x1: scaledX1, y1: scaledY1, x2: scaledX2, y2: scaledY2 }
+          });
+        });
+    });
   },
 
   // 加载坐标信息
@@ -747,5 +787,30 @@ Page({
         duration: 2000
       });
     }
+  },
+
+  // 添加页面卸载的生命周期函数
+  onUnload: function() {
+    wx.setPageOrientation({
+      orientation: 'portrait'  // 强制竖屏
+    });
+    this.isFullscreenTriggered = false;
+  },
+
+  // 添加返回按钮监听
+  onBackPress: function() {
+    // 如果当前是横屏状态，先切回竖屏
+    if (this.isFullscreenTriggered) {
+      wx.setPageOrientation({
+        orientation: 'portrait',
+        success: () => {
+          this.isFullscreenTriggered = false;
+        }
+      });
+      // 返回 true 表示阻止默认的返回行为
+      return true;
+    }
+    // 返回 false 表示使用默认的返回行为
+    return false;
   }
 }); 
