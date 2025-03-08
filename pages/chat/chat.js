@@ -811,11 +811,26 @@ Page({
         orientation: 'portrait',
         success: () => {
           this.isFullscreenTriggered = false;
-          // 重新绘制当前高亮的单词
-          if (this.data.highlightedWords && this.data.highlightedWords.length > 0) {
-            const word = this.data.highlightedWords[0].word;
-            this.highlightWord(word);
-          }
+          // 等待布局更新完成后再重新绘制
+          setTimeout(() => {
+            // 重新绘制当前高亮的单词
+            if (this.data.highlightedWords && this.data.highlightedWords.length > 0) {
+              const word = this.data.highlightedWords[0].word;
+              // 先清除当前高亮
+              const query = wx.createSelectorQuery();
+              query.select('#pptCanvas')
+                .fields({ node: true, size: true })
+                .exec((res) => {
+                  if (res[0]) {
+                    const canvas = res[0].node;
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                  }
+                  // 重新绘制高亮
+                  this.highlightWord(word);
+                });
+            }
+          }, 300);  // 给足够的时间让布局更新
         }
       });
     } else {
