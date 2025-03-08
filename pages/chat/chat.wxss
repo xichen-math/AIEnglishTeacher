@@ -4,6 +4,7 @@
   height: 100vh;
   background-color: #f5f5f5;
   box-sizing: border-box;
+  padding-top: calc(88rpx + env(safe-area-inset-top));  /* 为导航栏留出空间 */
 }
 
 .chat-list {
@@ -212,6 +213,68 @@
   background: rgba(0, 0, 0, 0.4);
 }
 
+/* 导航栏样式 */
+.custom-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 88rpx;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  padding-top: env(safe-area-inset-top);
+  z-index: 1000;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.1);
+}
+
+.back-btn {
+  width: 80rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  color: #333;
+  cursor: pointer;
+}
+
+.nav-title {
+  flex: 1;
+  text-align: center;
+  font-size: 32rpx;
+  color: #333;
+  padding-right: 80rpx;
+}
+
+/* 悬浮返回按钮样式 */
+.float-back-btn {
+  position: absolute;
+  left: 20rpx;
+  top: 20rpx;
+  width: 60rpx;
+  height: 60rpx;
+  background: rgba(0, 0, 0, 0.2);
+  color: #fff;
+  border-radius: 50%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.float-back-btn:active {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.ppt-container:hover .float-back-btn {
+  display: flex;
+  opacity: 1;
+}
+
 /* 横屏时的样式 */
 @media screen and (orientation: landscape) {
   .chat-container {
@@ -219,6 +282,7 @@
     height: 100vh;
     background: #000;
     position: relative;
+    padding-top: 0;
   }
 
   /* PPT区域 */
@@ -237,15 +301,49 @@
     object-fit: contain;
   }
 
-  /* 隐藏聊天相关元素 */
+  /* 隐藏聊天相关元素和导航栏 */
   .chat-list,
   .footer,
   .input-area,
-  .controls {
-    display: none;
+  .controls,
+  .custom-nav,
+  .fullscreen-btn {
+    display: none !important;
   }
 
-  .fullscreen-btn {
-    display: none;
+  /* 显示悬浮返回按钮 */
+  .float-back-btn {
+    display: flex;
   }
+}
+
+.back-icon {
+  width: 16rpx;
+  height: 16rpx;
+  border-top: 4rpx solid #fff;
+  border-left: 4rpx solid #fff;
+  transform: rotate(-45deg);
+  margin-left: 6rpx;
+}
+
+.custom-nav .back-icon {
+  border-color: #333;
+}
+
+.float-back-btn {
+  position: absolute;
+  left: 20rpx;
+  top: 20rpx;
+  width: 60rpx;
+  height: 60rpx;
+  background: rgba(0, 0, 0, 0.2);
+  color: #fff;
+  border-radius: 50%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.3s;
 } 

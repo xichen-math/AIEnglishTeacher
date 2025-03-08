@@ -28,5 +28,10 @@
     ]
   },
   "style": "v2",
-  "sitemapLocation": "sitemap.json"
+  "sitemapLocation": "sitemap.json",
+  "pageOrientation": {
+    "pages/chat/chat": {
+      "navigationStyle": "custom"
+    }
+  }
 }
