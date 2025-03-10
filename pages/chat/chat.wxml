@@ -10,7 +10,9 @@
   <!-- PPT 显示区域 -->
   <view class="ppt-container">
     <image class="ppt-slide" src="{{currentSlide}}" mode="aspectFit"></image>
-    <canvas type="2d" id="pptCanvas" class="ppt-canvas"></canvas>
+    <canvas type="2d" id="pptCanvas" class="ppt-canvas" bindtap="handleCanvasClick"></canvas>
+    <view wx:if="{{showTrophy}}" class="trophy {{moveTrophy ? 'move' : ''}}" 
+          style="left: {{trophyPosition.x}}px; top: {{trophyPosition.y}}px">🏆</view>
     <view class="float-back-btn" bindtap="handleBack">
       <view class="back-icon"></view>
     </view>
