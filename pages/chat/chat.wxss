@@ -150,31 +150,25 @@
   top: 50%;
   left: 0;
   right: 0;
+  transform: translateY(-50%);
   display: flex;
   justify-content: space-between;
   padding: 0 20rpx;
-  transform: translateY(-50%);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s;
+  z-index: 10;
+  pointer-events: auto;
 }
 
 .arrow-btn {
-  width: 60rpx;
-  height: 60rpx;
-  background: rgba(0, 0, 0, 0.2);
-  color: #fff;
+  width: 80rpx;
+  height: 80rpx;
+  background: rgba(0, 0, 0, 0.3);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28rpx;
-  pointer-events: auto;
-  cursor: pointer;
-}
-
-.arrow-btn:active {
-  background: rgba(0, 0, 0, 0.4);
+  color: white;
+  font-size: 24rpx;
+  z-index: 10;
 }
 
 .ppt-container:hover .ppt-controls {
@@ -187,8 +181,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none;
-  z-index: 2;
+  z-index: 1;
 }
 
 /* 全屏按钮样式 */
@@ -346,4 +339,23 @@
   z-index: 100;
   opacity: 0;
   transition: opacity 0.3s;
+}
+
+.trophy {
+  position: absolute;
+  font-size: 80rpx;
+  z-index: 1000;
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: none;
+  transition: all 0.5s ease-out;
+  display: block;
+}
+
+.trophy.move {
+  left: calc(100% - 80rpx) !important;
+  top: 20rpx !important;
+  transform: scale(0.8);
+  opacity: 0;
+  transition: all 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 } 

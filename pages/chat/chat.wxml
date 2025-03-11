@@ -10,15 +10,16 @@
   <!-- PPT 显示区域 -->
   <view class="ppt-container">
     <image class="ppt-slide" src="{{currentSlide}}" mode="aspectFit"></image>
-    <canvas type="2d" id="pptCanvas" class="ppt-canvas"></canvas>
-    <view class="float-back-btn" bindtap="handleBack">
-      <view class="back-icon"></view>
-    </view>
+    <canvas type="2d" id="pptCanvas" class="ppt-canvas" bindtap="handleCanvasClick"></canvas>
     <view class="ppt-controls">
       <view class="arrow-btn prev" bindtap="prevSlide" hidden="{{currentIndex === 0}}">◀</view>
       <view class="arrow-btn next" bindtap="nextSlide" hidden="{{currentIndex === slides.length - 1}}">▶</view>
     </view>
-    <!-- 添加全屏按钮 -->
+    <view wx:if="{{showTrophy}}" class="trophy {{moveTrophy ? 'move' : ''}}" 
+          style="left: {{trophyPosition.x}}px; top: {{trophyPosition.y}}px">🏆</view>
+    <view class="float-back-btn" bindtap="handleBack">
+      <view class="back-icon"></view>
+    </view>
     <view class="fullscreen-btn" bindtap="toggleFullscreen">⤢</view>
   </view>
 
