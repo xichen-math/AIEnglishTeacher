@@ -19,7 +19,9 @@ Page({
     showChat: true,
     showTrophy: false,
     moveTrophy: false,
-    trophyPosition: { x: 0, y: 0 }
+    trophyPosition: { x: 0, y: 0 },
+    waitingForWordClick: false,  // 添加新状态：是否等待用户点击单词
+    wordToClick: ''  // 添加新状态：需要点击的单词
   },
 
   onLoad: function() {
@@ -198,6 +200,16 @@ Page({
           Object.keys(this.data.wordCoordinates).forEach(word => {
             if (lowerReply.includes(word.toLowerCase())) {
               this.highlightWord(word);
+              // 检查是否包含"point to"指令
+              const cleanReply = lowerReply.replace(/[.,'"!?]/g, '');
+              if (cleanReply.includes('can you point to the') || 
+                  cleanReply.includes('point to the') || 
+                  cleanReply.includes('show me the')) {
+                this.setData({
+                  waitingForWordClick: true,
+                  wordToClick: word.toLowerCase()
+                });
+              }
             }
           });
         }
@@ -831,7 +843,6 @@ Page({
     // 检查点击的是否是其他按钮
     if (e && e.target) {
       const className = e.target.className || '';
-      // 如果点击的是按钮或控制元素，直接返回
       if (className.includes('back-btn') || 
           className.includes('back-icon') ||
           className.includes('arrow-btn') ||
@@ -847,7 +858,12 @@ Page({
       console.log('No highlighted words:', this.data.highlightedWords);
       return;
     }
-    
+
+    // 如果不是在等待点击单词状态，直接返回
+    if (!this.data.waitingForWordClick) {
+      return;
+    }
+
     const query = wx.createSelectorQuery();
     query.select('#pptCanvas')
       .boundingClientRect()
@@ -902,31 +918,33 @@ Page({
             y >= (scaledY1 - tolerance) && 
             y <= (scaledY2 + tolerance)) {
           
-          const trophyX = (scaledX1 + scaledX2) / 2 - 40;
-          const trophyY = (scaledY1 + scaledY2) / 2 - 40;
-          console.log('Trophy position:', {trophyX, trophyY});
-          
-          // 显示奖杯
-          this.setData({
-            trophyPosition: { x: trophyX, y: trophyY },
-            showTrophy: true,
-            moveTrophy: false
-          }, () => {
-            console.log('Trophy state updated:', this.data);
-          });
-          
-          // 等待奖杯显示后再开始移动
-          setTimeout(() => {
-            this.setData({ moveTrophy: true });
-          }, 500);
-          
-          // 动画结束后隐藏奖杯
-          setTimeout(() => {
-            this.setData({ 
-              showTrophy: false,
-              moveTrophy: false
+          // 检查点击的是否是要求的单词
+          if (this.data.highlightedWords[0].word === this.data.wordToClick) {
+            const trophyX = (scaledX1 + scaledX2) / 2 - 40;
+            const trophyY = (scaledY1 + scaledY2) / 2 - 40;
+            
+            // 显示奖杯
+            this.setData({
+              trophyPosition: { x: trophyX, y: trophyY },
+              showTrophy: true,
+              moveTrophy: false,
+              waitingForWordClick: false,  // 重置等待状态
+              wordToClick: ''  // 清空要点击的单词
             });
-          }, 1700);
+            
+            // 等待奖杯显示后再开始移动
+            setTimeout(() => {
+              this.setData({ moveTrophy: true });
+            }, 500);
+            
+            // 动画结束后隐藏奖杯
+            setTimeout(() => {
+              this.setData({ 
+                showTrophy: false,
+                moveTrophy: false
+              });
+            }, 1700);
+          }
         }
       });
   }
