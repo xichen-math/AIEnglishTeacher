@@ -16,7 +16,10 @@ Page({
     highlightedWords: [],  // 添加数组来存储需要高亮的单词
     lessonTitle: '',
     isFullscreenTriggered: false,
-    showChat: true
+    showChat: true,
+    showTrophy: false,
+    moveTrophy: false,
+    trophyPosition: { x: 0, y: 0 }
   },
 
   onLoad: function() {
@@ -822,5 +825,109 @@ Page({
       // 如果是竖屏状态，返回上一页
       wx.navigateBack();
     }
+  },
+
+  handleCanvasClick: function(e) {
+    // 检查点击的是否是其他按钮
+    if (e && e.target) {
+      const className = e.target.className || '';
+      // 如果点击的是按钮或控制元素，直接返回
+      if (className.includes('back-btn') || 
+          className.includes('back-icon') ||
+          className.includes('arrow-btn') ||
+          className.includes('fullscreen-btn') ||
+          className.includes('ppt-controls')) {
+        return;
+      }
+    }
+
+    console.log('Canvas clicked');
+    // 如果没有高亮的单词，直接返回
+    if (!this.data.highlightedWords || !this.data.highlightedWords[0]) {
+      console.log('No highlighted words:', this.data.highlightedWords);
+      return;
+    }
+    
+    const query = wx.createSelectorQuery();
+    query.select('#pptCanvas')
+      .boundingClientRect()
+      .exec((res) => {
+        if (!res[0]) {
+          console.log('Canvas not found');
+          return;
+        }
+        
+        const canvas = res[0];
+        const x = e.touches[0].clientX - canvas.left;
+        const y = e.touches[0].clientY - canvas.top;
+        console.log('Click coordinates:', {x, y});
+        
+        const coordinates = this.data.highlightedWords[0].coordinates;
+        console.log('Word coordinates:', coordinates);
+
+        const tolerance = 20;
+        
+        const containerWidth = canvas.width;
+        const containerHeight = canvas.height;
+        
+        let scaledWidth, scaledHeight, offsetX = 0, offsetY = 0;
+        
+        if (containerWidth > containerHeight) {
+          scaledHeight = containerHeight;
+          scaledWidth = containerHeight * 1280 / 720;
+          offsetX = Math.max(0, (containerWidth - scaledWidth) / 2);
+          offsetY = 0;
+        } else {
+          if (containerWidth / containerHeight > 1280 / 720) {
+            scaledHeight = containerHeight;
+            scaledWidth = containerHeight * 1280 / 720;
+            offsetX = (containerWidth - scaledWidth) / 2;
+          } else {
+            scaledWidth = containerWidth;
+            scaledHeight = containerWidth * 720 / 1280;
+            offsetY = (containerHeight - scaledHeight) / 2;
+          }
+        }
+        
+        const scaleX = scaledWidth / 1280;
+        const scaleY = scaledHeight / 720;
+        
+        const scaledX1 = coordinates.x1 * scaleX + offsetX;
+        const scaledY1 = coordinates.y1 * scaleY + offsetY;
+        const scaledX2 = coordinates.x2 * scaleX + offsetX;
+        const scaledY2 = coordinates.y2 * scaleY + offsetY;
+        
+        if (x >= (scaledX1 - tolerance) && 
+            x <= (scaledX2 + tolerance) && 
+            y >= (scaledY1 - tolerance) && 
+            y <= (scaledY2 + tolerance)) {
+          
+          const trophyX = (scaledX1 + scaledX2) / 2 - 40;
+          const trophyY = (scaledY1 + scaledY2) / 2 - 40;
+          console.log('Trophy position:', {trophyX, trophyY});
+          
+          // 显示奖杯
+          this.setData({
+            trophyPosition: { x: trophyX, y: trophyY },
+            showTrophy: true,
+            moveTrophy: false
+          }, () => {
+            console.log('Trophy state updated:', this.data);
+          });
+          
+          // 等待奖杯显示后再开始移动
+          setTimeout(() => {
+            this.setData({ moveTrophy: true });
+          }, 500);
+          
+          // 动画结束后隐藏奖杯
+          setTimeout(() => {
+            this.setData({ 
+              showTrophy: false,
+              moveTrophy: false
+            });
+          }, 1700);
+        }
+      });
   }
 }); 
