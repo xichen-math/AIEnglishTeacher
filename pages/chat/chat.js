@@ -20,8 +20,9 @@ Page({
     showTrophy: false,
     moveTrophy: false,
     trophyPosition: { x: 0, y: 0 },
-    waitingForWordClick: false,  // 添加新状态：是否等待用户点击单词
-    wordToClick: ''  // 添加新状态：需要点击的单词
+    waitingForWordClick: false,  // 是否等待用户点击单词
+    wordToClick: '',  // 需要点击的单词
+    allSlideCoordinates: {}
   },
 
   onLoad: function() {
@@ -133,6 +134,23 @@ Page({
     // 添加消息到列表
     console.log('准备添加消息到列表');
     this.addMessage(aiMessage);
+    
+    // 检查单词高亮和点击指令
+    const lowerReply = aiReply.toLowerCase();
+    // 检查是否包含指向指令
+    if (lowerReply.includes('point to the') || lowerReply.includes('can you point to')) {
+      // 循环所有单词查找匹配
+      for (const word in this.data.wordCoordinates) {
+        if (lowerReply.includes(word.toLowerCase())) {
+          this.highlightWord(word);
+          this.setData({
+            waitingForWordClick: true,
+            wordToClick: word.toLowerCase()
+          });
+          break;
+        }
+      }
+    }
   },
 
   /**
@@ -583,19 +601,28 @@ Page({
         title: '加载课件中...'
       });
       
+      console.log('加载PPT幻灯片...');
+      
+      // 直接使用云存储路径作为幻灯片源
       const slides = [
-        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lesson1/Slide1.JPG',
-        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lesson1/Slide2.JPG',
-        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lesson1/Slide3.JPG',
-        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lesson1/Slide4.JPG',
-        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lesson1/Slide5.JPG'
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lets-Go-beign-1-lesson-3/Slide1.JPG',
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lets-Go-beign-1-lesson-3/Slide2.JPG',
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lets-Go-beign-1-lesson-3/Slide3.JPG',
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lets-Go-beign-1-lesson-3/Slide4.JPG',
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lets-Go-beign-1-lesson-3/Slide5.JPG',
+        'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lets-Go-beign-1-lesson-3/Slide6.JPG'
       ];
       
+      console.log('使用幻灯片数量:', slides.length);
+
       this.setData({
-        slides,
-        currentSlide: slides[0],
+        slides: slides,               // 直接使用云存储路径
+        currentSlide: slides[0],      // 第一张幻灯片
+        currentIndex: 0,
         isLoading: false
       });
+      
+      console.log('设置的幻灯片列表:', slides);
     } catch (error) {
       console.error('加载PPT失败:', error);
       wx.showToast({
@@ -611,10 +638,13 @@ Page({
   nextSlide: function() {
     const { currentIndex, slides } = this.data;
     if (currentIndex < slides.length - 1) {
+      const newIndex = currentIndex + 1;
       this.setData({
-        currentIndex: currentIndex + 1,
-        currentSlide: slides[currentIndex + 1]
+        currentIndex: newIndex,
+        currentSlide: slides[newIndex]
       });
+      // 更新当前幻灯片的坐标
+      this.updateSlideCoordinates(newIndex);
     }
   },
 
@@ -622,10 +652,13 @@ Page({
   prevSlide: function() {
     const { currentIndex, slides } = this.data;
     if (currentIndex > 0) {
+      const newIndex = currentIndex - 1;
       this.setData({
-        currentIndex: currentIndex - 1,
-        currentSlide: slides[currentIndex - 1]
+        currentIndex: newIndex,
+        currentSlide: slides[newIndex]
       });
+      // 更新当前幻灯片的坐标
+      this.updateSlideCoordinates(newIndex);
     }
   },
 
@@ -755,7 +788,7 @@ Page({
     try {
       console.log('开始下载坐标文件...');
       const result = await wx.cloud.downloadFile({
-        fileID: 'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/coordinates.json'
+        fileID: 'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/Lets-Go-beign-1-lesson-3/Lets-Go-beign-1-coordinates.tsv'
       });
       console.log('文件下载结果:', result);
 
@@ -763,27 +796,58 @@ Page({
       let fileContent;
       try {
         fileContent = fs.readFileSync(result.tempFilePath, 'utf8');
-        console.log('读取到的文件内容:', fileContent);
+        console.log('读取到的文件内容前100个字符:', fileContent.substring(0, 100));
       } catch (readError) {
         console.error('读取文件失败:', readError);
         throw readError;
       }
 
-      let coordinates;
-      try {
-        coordinates = JSON.parse(fileContent);
-        console.log('JSON解析结果:', coordinates);
-      } catch (parseError) {
-        console.error('JSON解析失败:', parseError);
-        throw parseError;
+      // 解析TSV格式的坐标文件
+      const allSlideCoordinates = {};
+      const lines = fileContent.split('\n');
+      
+      // 跳过标题行
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue; // 跳过空行
+        
+        // 分割每行数据
+        const parts = line.split(',').map(part => part.trim());
+        if (parts.length < 6) {
+          console.warn('无效的坐标行:', line);
+          continue;
+        }
+        
+        // 解析数据
+        const slideNum = parts[1]; // 如 'Slide1'
+        const word = parts[2].toLowerCase(); // 单词转小写存储
+        
+        // 解析坐标 (x1=506, y1=431, x2=566, y2=450)
+        const x1 = parseInt(parts[3].split('=')[1]);
+        const y1 = parseInt(parts[4].split('=')[1]);
+        const x2 = parseInt(parts[5].split('=')[1]);
+        const y2 = parts.length > 6 ? parseInt(parts[6].split('=')[1]) : y1 + 20;
+        
+        // 初始化slide对象
+        if (!allSlideCoordinates[slideNum]) {
+          allSlideCoordinates[slideNum] = {};
+        }
+        
+        // 存储单词坐标
+        allSlideCoordinates[slideNum][word] = {
+          x1, y1, x2, y2
+        };
       }
-
-      if (!coordinates || !coordinates.Lesson1 || !coordinates.Lesson1.Slide1) {
-        throw new Error('坐标文件格式不正确，缺少必要的数据结构');
-      }
+      
+      console.log('解析到的坐标数据:', allSlideCoordinates);
+      
+      // 获取当前幻灯片的坐标
+      const currentSlideNum = 'Slide' + (this.data.currentIndex + 1);
+      const currentCoordinates = allSlideCoordinates[currentSlideNum] || {};
 
       this.setData({
-        wordCoordinates: coordinates['Lesson1']['Slide1']
+        wordCoordinates: currentCoordinates,
+        allSlideCoordinates: allSlideCoordinates
       });
 
     } catch (error) {
@@ -855,15 +919,15 @@ Page({
     console.log('Canvas clicked');
     // 如果没有高亮的单词，直接返回
     if (!this.data.highlightedWords || !this.data.highlightedWords[0]) {
-      console.log('No highlighted words:', this.data.highlightedWords);
+      console.log('No highlighted words');
       return;
     }
-
+    
     // 如果不是在等待点击单词状态，直接返回
     if (!this.data.waitingForWordClick) {
       return;
     }
-
+    
     const query = wx.createSelectorQuery();
     query.select('#pptCanvas')
       .boundingClientRect()
@@ -876,11 +940,11 @@ Page({
         const canvas = res[0];
         const x = e.touches[0].clientX - canvas.left;
         const y = e.touches[0].clientY - canvas.top;
-        console.log('Click coordinates:', {x, y});
+        console.log('Click position:', {x, y});
         
         const coordinates = this.data.highlightedWords[0].coordinates;
         console.log('Word coordinates:', coordinates);
-
+        
         const tolerance = 20;
         
         const containerWidth = canvas.width;
@@ -919,17 +983,19 @@ Page({
             y <= (scaledY2 + tolerance)) {
           
           // 检查点击的是否是要求的单词
-          if (this.data.highlightedWords[0].word === this.data.wordToClick) {
+          if (this.data.highlightedWords[0].word.toLowerCase() === this.data.wordToClick) {
             const trophyX = (scaledX1 + scaledX2) / 2 - 40;
             const trophyY = (scaledY1 + scaledY2) / 2 - 40;
+            
+            console.log('显示奖杯，位置:', {trophyX, trophyY});
             
             // 显示奖杯
             this.setData({
               trophyPosition: { x: trophyX, y: trophyY },
               showTrophy: true,
               moveTrophy: false,
-              waitingForWordClick: false,  // 重置等待状态
-              wordToClick: ''  // 清空要点击的单词
+              waitingForWordClick: false, // 重置等待状态
+              wordToClick: '' // 清除单词
             });
             
             // 等待奖杯显示后再开始移动
@@ -947,5 +1013,38 @@ Page({
           }
         }
       });
-  }
+  },
+
+  // 更新幻灯片坐标
+  updateSlideCoordinates: function(slideIndex) {
+    if (!this.data.allSlideCoordinates) return;
+    
+    // 获取当前幻灯片号对应的坐标
+    const slideNum = 'Slide' + (slideIndex + 1);
+    const coordinates = this.data.allSlideCoordinates[slideNum] || {};
+    
+    console.log('更新为幻灯片坐标:', slideNum, coordinates);
+    
+    this.setData({
+      wordCoordinates: coordinates,
+      highlightedWords: [] // 清除当前高亮状态
+    });
+    
+    // 清除画布上的高亮
+    this.clearCanvas();
+  },
+  
+  // 清除画布
+  clearCanvas: function() {
+    const query = wx.createSelectorQuery();
+    query.select('#pptCanvas')
+      .fields({ node: true, size: true })
+      .exec((res) => {
+        if (res[0] && res[0].node) {
+          const canvas = res[0].node;
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      });
+  },
 }); 
