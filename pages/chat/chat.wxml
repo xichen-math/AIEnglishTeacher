@@ -9,11 +9,19 @@
 
   <!-- PPT 显示区域 -->
   <view class="ppt-container">
-    <image class="ppt-slide" src="{{currentSlide}}" mode="aspectFit"></image>
+    <image class="ppt-slide" 
+           src="{{currentSlide}}" 
+           mode="aspectFit" 
+           binderror="handleImageError" 
+           bindload="handleImageLoad"></image>
     <canvas type="2d" id="pptCanvas" class="ppt-canvas" bindtap="handleCanvasClick"></canvas>
     <view class="ppt-controls">
-      <view class="arrow-btn prev" bindtap="prevSlide" hidden="{{currentIndex === 0}}">◀</view>
-      <view class="arrow-btn next" bindtap="nextSlide" hidden="{{currentIndex === slides.length - 1}}">▶</view>
+      <view class="arrow-btn-container">
+        <view class="arrow-btn prev" bindtap="prevSlide" hidden="{{currentIndex === 0}}">◀</view>
+      </view>
+      <view class="arrow-btn-container">
+        <view class="arrow-btn next" bindtap="nextSlide" hidden="{{currentIndex === slides.length - 1}}">▶</view>
+      </view>
     </view>
     <view wx:if="{{showTrophy}}" class="trophy {{moveTrophy ? 'move' : ''}}" 
           style="left: {{trophyPosition.x}}px; top: {{trophyPosition.y}}px">🏆</view>
