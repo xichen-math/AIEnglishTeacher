@@ -10,8 +10,8 @@ Page({
 
   // 跳转到课程列表
   goCourseList() {
-    wx.switchTab({
-      url: '/pages/course/course'
+    wx.navigateTo({
+      url: '/pages/chat/chat?courseId=1&title=趣味动物教程'
     });
   }
 }); 
