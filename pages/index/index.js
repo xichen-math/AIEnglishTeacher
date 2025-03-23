@@ -117,13 +117,10 @@ Page({
 
   switchTab(e) {
     const tab = e.currentTarget.dataset.tab;
-    this.setData({ currentTab: tab });
-    
-    // 根据tab跳转到对应页面
-    if (tab !== 'home') {
-      wx.switchTab({
-        url: `/pages/${tab}/index`
-      });
-    }
+    wx.switchTab({
+      url: tab === 'home' ? '/pages/index/index' : 
+           tab === 'review' ? '/pages/chat/chat' : 
+           '/pages/my/my'
+    });
   }
 }); 

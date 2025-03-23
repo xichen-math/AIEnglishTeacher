@@ -2,7 +2,8 @@
   "pages": [
     "pages/index/index",
     "pages/chat/chat",
-    "pages/my/my"
+    "pages/my/my",
+    "pages/course/course"
   ],
   "window": {
     "backgroundTextStyle": "light",
@@ -10,5 +11,25 @@
     "navigationBarTitleText": "AI英语教师",
     "navigationBarTextStyle": "black",
     "pageOrientation": "portrait"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#2563EB",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/course/course",
+        "text": "课程"
+      },
+      {
+        "pagePath": "pages/my/my",
+        "text": "我的"
+      }
+    ]
   }
 }
