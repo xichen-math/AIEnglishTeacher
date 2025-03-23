@@ -2,7 +2,8 @@
   "pages": [
     "pages/index/index",
     "pages/chat/chat",
-    "pages/my/my"
+    "pages/my/my",
+    "pages/course/course"
   ],
   "window": {
     "backgroundTextStyle": "light",
@@ -13,25 +14,22 @@
   },
   "tabBar": {
     "color": "#999999",
-    "selectedColor": "#1296db",
+    "selectedColor": "#2563EB",
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "推荐"
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/course/course",
+        "text": "课程"
       },
       {
         "pagePath": "pages/my/my",
         "text": "我的"
       }
     ]
-  },
-  "style": "v2",
-  "sitemapLocation": "sitemap.json",
-  "pageOrientation": {
-    "pages/chat/chat": {
-      "navigationStyle": "custom"
-    }
   }
 }

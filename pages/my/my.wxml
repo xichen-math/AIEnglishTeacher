@@ -1,27 +1,43 @@
 <view class="container">
-  <!-- 我的课程 -->
-  <view class="section">
-    <view class="section-title">我的课程</view>
-    <view class="course-list">
-      <view class="course-item" wx:for="{{myCourses}}" wx:key="id">
-        <text class="course-name">{{item.name}}</text>
-        <text class="course-progress">学习进度: {{item.progress}}%</text>
+  <!-- 用户信息 -->
+  <view class="user-info">
+    <view class="user-left">
+      <image class="avatar" src="https://public.readdy.ai/ai/img_res/ce05f2ef3b1b80105615c540552598bb.jpg"/>
+      <view class="user-detail">
+        <view class="username">Charlotte</view>
+        <view class="user-level">
+          <text class="crown">👑</text>
+          <text>Level 3 · 280星星</text>
+        </view>
       </view>
     </view>
   </view>
 
-  <!-- 历史记录 -->
-  <view class="section">
-    <view class="section-title">历史记录</view>
-    <view class="history-list">
-      <view class="history-item" wx:for="{{chatHistories}}" wx:key="timestamp">
-        <view class="history-header">
-          <text class="history-course">{{item.courseName}}</text>
-          <text class="history-time">{{item.timeStr}}</text>
-        </view>
-        <view class="history-messages">
-          <text class="message-count">对话数: {{item.messages.length}}</text>
-        </view>
+  <!-- 课程切换标签 -->
+  <view class="tab-header">
+    <text class="tab-item {{currentTab === 'ongoing' ? 'active' : ''}}" bindtap="switchTab" data-tab="ongoing">待上课程</text>
+    <text class="tab-item {{currentTab === 'completed' ? 'active' : ''}}" bindtap="switchTab" data-tab="completed">已完成课程</text>
+  </view>
+
+  <!-- 课程列表 -->
+  <view class="course-list" wx:if="{{currentTab === 'ongoing'}}">
+    <view class="course-card" bindtap="goCourseList">
+      <image src="https://public.readdy.ai/ai/img_res/ed22c5f23ea29528a6a4ac3553893c51.jpg"/>
+      <view class="course-info">
+        <text class="course-title">趣味动物教程</text>
+        <text class="course-time">预约时间：2025-03-24 14:00</text>
+        <text class="course-type">线上课程</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="course-list" wx:if="{{currentTab === 'completed'}}">
+    <view class="course-card">
+      <image src="https://public.readdy.ai/ai/img_res/5a9dc6c1dc5092f37097a4683ba3ca8f.jpg"/>
+      <view class="course-info">
+        <text class="course-title">水果认知课程</text>
+        <text class="course-time">完成时间：2025-03-20 10:00</text>
+        <text class="course-type">线上课程</text>
       </view>
     </view>
   </view>

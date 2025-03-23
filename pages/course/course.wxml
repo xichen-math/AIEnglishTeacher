@@ -1,0 +1,42 @@
+<!--pages/course/course.wxml-->
+<view class="container">
+  <!-- 顶部搜索 -->
+  <view class="search-box">
+    <icon type="search" size="14"></icon>
+    <input type="text" placeholder="搜索课程" />
+  </view>
+
+  <!-- 课程分类标签 -->
+  <view class="filter-tags">
+    <text class="tag {{currentTag === 'all' ? 'active' : ''}}" bindtap="switchTag" data-tag="all">全部</text>
+    <text class="tag {{currentTag === 'beginner' ? 'active' : ''}}" bindtap="switchTag" data-tag="beginner">初级</text>
+    <text class="tag {{currentTag === 'intermediate' ? 'active' : ''}}" bindtap="switchTag" data-tag="intermediate">中级</text>
+    <text class="tag {{currentTag === 'advanced' ? 'active' : ''}}" bindtap="switchTag" data-tag="advanced">高级</text>
+  </view>
+
+  <!-- 教材标签 -->
+  <view class="tab-header">
+    <text class="tab active">教材</text>
+  </view>
+
+  <!-- 课程列表 -->
+  <view class="course-grid">
+    <view class="course-card" wx:for="{{courses}}" wx:key="id">
+      <image src="{{item.image}}" mode="aspectFill"/>
+      <view class="course-info">
+        <text class="course-title">{{item.title}}</text>
+        <view class="course-meta">
+          <text>适合 {{item.age}}</text>
+          <text class="dot">·</text>
+          <text>{{item.duration}}</text>
+        </view>
+        <view class="course-rating">
+          <view class="stars">
+            <text class="star" wx:for="{{item.stars}}" wx:key="*this">⭐</text>
+          </view>
+          <text class="level">{{item.level}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
