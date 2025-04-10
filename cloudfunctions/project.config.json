@@ -1,0 +1,26 @@
+{
+    "description": "AI English Teacher Mini Program",
+    "cloudfunctionRoot": "cloudfunctions/",
+    "cloudfunction": {
+      "chat": {
+        "envId": "test-6g0nfnc7f85f8936"
+      },
+      "ocr": {
+        "envId": "test-6g0nfnc7f85f8936"
+      },
+      "prompt": {
+        "envId": "test-6g0nfnc7f85f8936"
+      },
+      "simple-voice": {
+        "envId": "test-6g0nfnc7f85f8936"
+      }
+    },
+    "compileType": "miniprogram",
+    "miniprogramRoot": "./",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "enhance": true
+    }
+  }
+  

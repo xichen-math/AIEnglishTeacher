@@ -67,11 +67,26 @@ Page({
    * 初始化录音管理器
    */
   initRecorderManager: function() {
+    // 监听录音开始事件
+    this.recorderManager.onStart(() => {
+      console.log('===== 录音已开始 =====');
+    });
+    
     // 监听录音结束事件
     this.recorderManager.onStop((res) => {
+      console.log('===== 录音已结束，文件路径:', res.tempFilePath);
       const { tempFilePath } = res;
       // 发送录音文件到服务器进行语音识别
       this.sendVoiceToServer(tempFilePath);
+    });
+    
+    // 监听录音错误事件
+    this.recorderManager.onError((err) => {
+      console.error('===== 录音发生错误:', err);
+      wx.showToast({
+        title: '录音失败: ' + err.errMsg,
+        icon: 'none'
+      });
     });
   },
 
@@ -79,11 +94,13 @@ Page({
    * 开始录音
    */
   startRecording: function() {
+    console.log('===== 开始录音 =====');
     // 请求录音权限
     wx.authorize({
       scope: 'scope.record',
       success: () => {
         this.setData({ isRecording: true });
+        console.log('录音权限获取成功，开始录音');
         this.recorderManager.start({
           duration: 60000, // 最长录音时间，单位ms
           sampleRate: 16000,
@@ -93,6 +110,7 @@ Page({
         });
       },
       fail: () => {
+        console.error('录音权限获取失败');
         wx.showToast({
           title: '请授权录音权限',
           icon: 'none'
@@ -105,6 +123,7 @@ Page({
    * 结束录音
    */
   stopRecording: function() {
+    console.log('===== 结束录音 =====');
     this.setData({ isRecording: false });
     this.recorderManager.stop();
   },
@@ -396,35 +415,55 @@ Page({
 
     try {
       // 1. 先将录音文件上传到云存储
+      console.log('===== 开始上传录音文件到云存储 =====');
+      console.log('本地文件路径:', filePath);
+      console.log('目标云存储路径:', `audio/${this.data.conversationId}/${messageId}.mp3`);
+      
       const uploadRes = await wx.cloud.uploadFile({
         cloudPath: `audio/${this.data.conversationId}/${messageId}.mp3`,
         filePath: filePath
       });
+
+      console.log('===== 录音文件上传结果 =====');
+      console.log('云文件ID:', uploadRes.fileID);
+      console.log('上传状态:', uploadRes.errMsg);
 
       if (!uploadRes.fileID) {
         throw new Error('上传录音失败');
       }
 
       // 2. 调用云函数处理语音
+      console.log('===== 开始调用云函数处理语音 =====');
+      console.log('传入参数:', {
+        audioFileID: uploadRes.fileID,
+        userId: app.globalData.userId,
+        conversationId: this.data.conversationId
+      });
+      
       const res = await wx.cloud.callFunction({
         name: 'chat',
         data: {
-          audioFileId: uploadRes.fileID,
+          audioFileID: uploadRes.fileID,
           userId: app.globalData.userId,
-          conversationId: this.data.conversationId,
-          isAudio: true
+          conversationId: this.data.conversationId
         }
       });
 
+      console.log('===== 云函数处理语音结果 =====');
+      console.log('云函数返回:', res.result);
+      
       if (res.result.error) {
         throw new Error(res.result.message || '处理失败');
       }
 
       // 3. 添加用户消息
-      if (res.result.userText) {
+      if (res.result.recognizedText) {
+        console.log('===== 语音识别结果 =====');
+        console.log('识别文本:', res.result.recognizedText);
+        
         messages.push({
           type: 'user',
-          content: res.result.userText,
+          content: res.result.recognizedText,
           messageId: messageId,
           id: newMessageId
         });
@@ -432,6 +471,10 @@ Page({
 
       // 4. 添加AI回复
       if (res.result.aiReply) {
+        console.log('===== AI回复内容 =====');
+        console.log('回复文本:', res.result.aiReply);
+        console.log('音频URL:', res.result.audioUrl);
+        
         messages.push({
           type: 'ai',
           content: res.result.aiReply,
@@ -450,11 +493,14 @@ Page({
 
       // 6. 如果有音频回复，播放
       if (res.result.hasAudio && res.result.audioUrl) {
+        console.log('===== 开始播放AI回复音频 =====');
         this.playCloudAudio(res.result.audioUrl);
       }
 
     } catch (error) {
-      console.error('发送语音失败:', error);
+      console.error('===== 发送语音失败 =====');
+      console.error('错误详情:', error);
+      console.error('错误堆栈:', error.stack);
       wx.showToast({
         title: error.message || '发送失败',
         icon: 'none'
