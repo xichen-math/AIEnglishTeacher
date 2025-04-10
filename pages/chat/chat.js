@@ -61,12 +61,25 @@ Page({
     wx.setPageOrientation({
       orientation: 'portrait'
     });
+
+    // 预先请求录音权限
+    wx.authorize({
+      scope: 'scope.record',
+      success: () => {
+        console.log('===== 录音权限已获取 =====');
+      },
+      fail: (err) => {
+        console.error('===== 录音权限获取失败 =====', err);
+      }
+    });
   },
 
   /**
    * 初始化录音管理器
    */
   initRecorderManager: function() {
+    console.log('===== 初始化录音管理器 =====');
+    
     // 监听录音开始事件
     this.recorderManager.onStart(() => {
       console.log('===== 录音已开始 =====');
@@ -75,18 +88,34 @@ Page({
     // 监听录音结束事件
     this.recorderManager.onStop((res) => {
       console.log('===== 录音已结束，文件路径:', res.tempFilePath);
-      const { tempFilePath } = res;
+      if (!res.tempFilePath) {
+        console.error('===== 录音失败：未获取到临时文件路径 =====');
+        wx.showToast({
+          title: '录音失败，请重试',
+          icon: 'none'
+        });
+        return;
+      }
       // 发送录音文件到服务器进行语音识别
-      this.sendVoiceToServer(tempFilePath);
+      this.sendVoiceToServer(res.tempFilePath);
     });
     
     // 监听录音错误事件
     this.recorderManager.onError((err) => {
       console.error('===== 录音发生错误:', err);
       wx.showToast({
-        title: '录音失败: ' + err.errMsg,
+        title: '录音失败: ' + (err.errMsg || '未知错误'),
         icon: 'none'
       });
+    });
+    
+    // 监听录音中断事件
+    this.recorderManager.onInterruptionBegin(() => {
+      console.warn('===== 录音被中断 =====');
+    });
+    
+    this.recorderManager.onInterruptionEnd(() => {
+      console.log('===== 录音中断结束 =====');
     });
   },
 
@@ -101,19 +130,34 @@ Page({
       success: () => {
         this.setData({ isRecording: true });
         console.log('录音权限获取成功，开始录音');
+        
+        // 使用更简单的录音配置
         this.recorderManager.start({
           duration: 60000, // 最长录音时间，单位ms
-          sampleRate: 16000,
+          sampleRate: 8000, // 降低采样率
           numberOfChannels: 1,
-          encodeBitRate: 48000,
-          format: 'mp3'
+          encodeBitRate: 16000, // 降低比特率
+          format: 'mp3',
+          frameSize: 50
         });
       },
-      fail: () => {
-        console.error('录音权限获取失败');
-        wx.showToast({
-          title: '请授权录音权限',
-          icon: 'none'
+      fail: (err) => {
+        console.error('录音权限获取失败:', err);
+        
+        // 尝试打开设置页面让用户手动授权
+        wx.showModal({
+          title: '需要录音权限',
+          content: '请授权小程序使用录音功能',
+          confirmText: '去设置',
+          success: (res) => {
+            if (res.confirm) {
+              wx.openSetting({
+                success: (settingRes) => {
+                  console.log('设置页面返回:', settingRes);
+                }
+              });
+            }
+          }
         });
       }
     });
@@ -1092,5 +1136,26 @@ Page({
           ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
       });
+  },
+
+  checkRecordingAvailability: function() {
+    try {
+      const systemInfo = wx.getSystemInfoSync();
+      console.log('===== 系统信息 =====', systemInfo);
+      
+      // 检查是否在开发者工具中运行
+      if (systemInfo.platform === 'devtools') {
+        console.warn('===== 在开发者工具中，录音功能可能受限 =====');
+      }
+      
+      // 检查系统版本
+      const version = systemInfo.version || '';
+      console.log('微信版本:', version);
+      
+      return true;
+    } catch (err) {
+      console.error('获取系统信息失败:', err);
+      return false;
+    }
   },
 }); 
