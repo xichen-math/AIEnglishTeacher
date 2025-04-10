@@ -1,7 +1,8 @@
 const axios = require('axios');
 const cloud = require('wx-server-sdk');
 const sdk = require('microsoft-cognitiveservices-speech-sdk');
-const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -41,72 +42,79 @@ async function getPromptFromCloud() {
 }
 
 /**
- * 将音频文件转换为标准WAV格式
- * @param {Buffer} audioBuffer - 音频文件buffer
- * @param {string} inputFormat - 输入音频格式
- * @returns {Promise<string>} 转换后的WAV文件路径
+ * 将音频转换为WAV格式
+ * @param {Buffer} audioBuffer 音频数据
+ * @param {string} inputFormat 输入格式，默认为mp3
+ * @returns {Promise<Buffer>}
  */
 async function convertToWav(audioBuffer, inputFormat = 'mp3') {
-  console.log('===== 开始音频转换 =====');
-  console.log('输入音频大小:', audioBuffer.length, '字节');
-  console.log('输入格式:', inputFormat);
-  
-  // 创建临时文件路径 - 使用系统临时目录
-  const tmpDir = process.env.TEMP || process.env.TMP || '/tmp';
-  console.log('使用临时目录:', tmpDir);
-  
-  // 确保临时目录存在
-  try {
-    await fs.promises.mkdir(tmpDir, { recursive: true });
-    console.log('临时目录已确认存在');
-  } catch (err) {
-    console.warn('创建临时目录失败，尝试继续:', err);
-  }
-  
-  const tempInputPath = path.join(tmpDir, `temp_input_${Date.now()}.${inputFormat}`);
-  const wavOutputPath = path.join(tmpDir, `converted_${Date.now()}.wav`);
-  
-  console.log('临时输入文件:', tempInputPath);
-  console.log('WAV输出文件:', wavOutputPath);
-  
-  // 将buffer写入临时文件
-  try {
-    await fs.promises.writeFile(tempInputPath, audioBuffer);
-    console.log('音频buffer已写入临时文件');
-  } catch (err) {
-    console.error('写入临时文件失败:', err);
-    console.error('尝试使用的路径:', tempInputPath);
-    throw new Error(`无法写入临时文件: ${err.message}`);
-  }
-
   return new Promise((resolve, reject) => {
-    ffmpeg(tempInputPath)
-      .toFormat('wav')
-      .outputOptions([
-        '-acodec pcm_s16le',  // 16位PCM编码
-        '-ar 16000',          // 16kHz采样率
-        '-ac 1'               // 单声道
-      ])
-      .on('start', (commandLine) => {
-        console.log('ffmpeg命令:', commandLine);
-      })
-      .on('progress', (progress) => {
-        console.log('转换进度:', progress);
-      })
-      .on('end', () => {
-        console.log('音频转换完成');
-        // 删除临时文件
-        fs.unlink(tempInputPath, (err) => {
-          if (err) console.error('删除临时文件失败:', err);
-        });
-        resolve(wavOutputPath);
-      })
-      .on('error', (err) => {
-        console.error('音频转换失败:', err);
-        fs.unlink(tempInputPath, () => {});
-        reject(err);
-      })
-      .save(wavOutputPath);
+    // 使用系统临时目录
+    const tmpDir = process.env.TEMP || process.env.TMP || '/tmp';
+    console.log('使用临时目录:', tmpDir);
+    
+    // 确保临时目录存在
+    try {
+      if (!fs.existsSync(tmpDir)) {
+        fs.mkdirSync(tmpDir, { recursive: true });
+        console.log('创建临时目录成功');
+      }
+    } catch (err) {
+      console.error('创建临时目录失败:', err);
+      reject(err);
+      return;
+    }
+
+    const tempInputPath = path.join(tmpDir, `input_${Date.now()}.${inputFormat}`);
+    const tempOutputPath = path.join(tmpDir, `output_${Date.now()}.wav`);
+    
+    console.log('临时输入文件路径:', tempInputPath);
+    console.log('临时输出文件路径:', tempOutputPath);
+    
+    try {
+      // 写入临时输入文件
+      fs.writeFileSync(tempInputPath, audioBuffer);
+      console.log('临时输入文件写入成功');
+      
+      // 使用ffmpeg命令行转换
+      const command = `${ffmpegPath} -i "${tempInputPath}" -acodec pcm_s16le -ar 16000 -ac 1 "${tempOutputPath}"`;
+      console.log('执行FFmpeg命令:', command);
+      
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          console.error('FFmpeg转换错误:', error);
+          console.error('FFmpeg stderr:', stderr);
+          // 清理临时文件
+          try {
+            if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
+            if (fs.existsSync(tempOutputPath)) fs.unlinkSync(tempOutputPath);
+          } catch (cleanupErr) {
+            console.error('清理临时文件失败:', cleanupErr);
+          }
+          reject(error);
+          return;
+        }
+        
+        try {
+          // 读取转换后的文件
+          const wavBuffer = fs.readFileSync(tempOutputPath);
+          console.log('WAV文件读取成功，大小:', wavBuffer.length, '字节');
+          
+          // 清理临时文件
+          fs.unlinkSync(tempInputPath);
+          fs.unlinkSync(tempOutputPath);
+          console.log('临时文件清理完成');
+          
+          resolve(wavBuffer);
+        } catch (readErr) {
+          console.error('读取WAV文件失败:', readErr);
+          reject(readErr);
+        }
+      });
+    } catch (writeErr) {
+      console.error('写入临时文件失败:', writeErr);
+      reject(writeErr);
+    }
   });
 }
 
@@ -120,112 +128,67 @@ async function recognizeSpeech(audioFileID) {
     console.log('===== 开始语音识别 =====');
     console.log('音频文件ID:', audioFileID);
     
-    // 从云存储下载音频文件
-    console.log('开始下载音频文件...');
-    const audioFile = await cloud.downloadFile({
-      fileID: audioFileID,
+    // 检查语音识别配置
+    const speechKey = process.env.SPEECH_KEY || "bd5f339e632b4544a1c9a300f80c1b0a";
+    const speechRegion = process.env.SPEECH_REGION || "eastus";
+    
+    console.log('使用语音识别配置:', {
+      key: speechKey.substring(0, 4) + '...', // 只显示前4位，保护密钥
+      region: speechRegion
     });
-    console.log('音频文件下载成功，大小:', audioFile.fileContent.length, '字节');
+    
+    // 从云存储下载音频文件
+    const audioFile = await cloud.downloadFile({
+      fileID: audioFileID
+    });
+    
+    console.log('音频文件下载完成');
     
     // 获取文件扩展名
-    const fileExt = path.extname(audioFileID).toLowerCase().substring(1) || 'mp3';
+    const fileExt = path.extname(audioFileID).substring(1).toLowerCase();
     console.log('文件扩展名:', fileExt);
     
-    let wavFileContent;
-    let wavFilePath;
+    // 转换为WAV格式
+    const wavBuffer = await convertToWav(audioFile.fileContent, fileExt);
+    console.log('音频转换完成，大小:', wavBuffer.length, '字节');
     
-    // 在本地测试环境中，可以直接使用原始音频数据
-    if (process.env.NODE_ENV === 'development') {
-      console.log('本地开发环境，跳过音频转换');
-      wavFileContent = audioFile.fileContent;
-    } else {
-      // 转换为WAV格式
-      console.log('开始转换为WAV格式...');
-      wavFilePath = await convertToWav(audioFile.fileContent, fileExt);
-      console.log('WAV转换完成，文件路径:', wavFilePath);
-      
-      // 读取WAV文件
-      wavFileContent = await fs.promises.readFile(wavFilePath);
-      console.log('WAV文件读取成功，大小:', wavFileContent.length, '字节');
-    }
-
-    // 创建语音配置
-    console.log('创建语音识别配置...');
+    // 使用语音识别SDK
     const speechConfig = sdk.SpeechConfig.fromSubscription(
-      process.env.AZURE_SPEECH_KEY || "bd5f339e632b4544a1c9a300f80c1b0a",
-      "eastus"
+      speechKey,
+      speechRegion
     );
     speechConfig.speechRecognitionLanguage = "en-US";
     
-    // 创建音频配置
-    console.log('创建音频配置...');
-    let audioConfig;
+    // 创建音频流
+    const pushStream = sdk.AudioInputStream.createPushStream();
     
-    if (process.env.NODE_ENV === 'development') {
-      // 在开发环境中使用流式输入
-      const pushStream = sdk.AudioInputStream.createPushStream();
-      audioConfig = sdk.AudioConfig.fromStreamInput(pushStream);
-      pushStream.write(wavFileContent);
-      pushStream.close();
-    } else {
-      // 在生产环境中使用WAV文件输入
-      audioConfig = sdk.AudioConfig.fromWavFileInput(wavFileContent);
-    }
+    // 将WAV buffer写入到流中
+    pushStream.write(wavBuffer);
+    pushStream.close();
     
-    // 创建语音识别器
-    console.log('创建语音识别器...');
+    // 使用音频流创建音频配置
+    const audioConfig = sdk.AudioConfig.fromStreamInput(pushStream);
+    
     const recognizer = new sdk.SpeechRecognizer(speechConfig, audioConfig);
     
-    // 进行语音识别
-    console.log('开始识别语音...');
-    const result = await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       recognizer.recognizeOnceAsync(
         result => {
-          console.log('识别完成，结果类型:', result.reason);
-          recognizer.close();
-          
+          console.log('识别结果:', result);
           if (result.reason === sdk.ResultReason.RecognizedSpeech) {
-            console.log('识别成功，文本:', result.text);
             resolve(result.text);
-          } else if (result.reason === sdk.ResultReason.NoMatch) {
-            console.log('无法识别语音');
-            reject(new Error('Speech could not be recognized.'));
-          } else if (result.reason === sdk.ResultReason.Canceled) {
-            const cancellation = sdk.CancellationDetails.fromResult(result);
-            console.log(`识别取消: 原因=${cancellation.reason}`);
-            
-            if (cancellation.reason === sdk.CancellationReason.Error) {
-              console.log(`错误代码: ${cancellation.ErrorCode}`);
-              console.log(`错误详情: ${cancellation.errorDetails}`);
-            }
-            reject(new Error(`Recognition canceled: ${cancellation.reason}`));
+          } else {
+            reject(new Error(`识别失败: ${result.reason}`));
           }
         },
         error => {
-          console.error('语音识别错误:', error);
-          recognizer.close();
+          console.error('识别错误:', error);
           reject(error);
         }
       );
     });
-    
-    // 清理临时文件
-    if (wavFilePath) {
-      console.log('清理临时文件...');
-      try {
-        await fs.promises.unlink(wavFilePath);
-        console.log('临时WAV文件已删除');
-      } catch (err) {
-        console.error('删除WAV文件失败:', err);
-      }
-    }
-    
-    console.log('语音识别完成，返回文本');
-    return result;
-    
   } catch (error) {
-    console.error('语音识别失败:', error);
-    console.error('错误堆栈:', error.stack);
+    console.error('语音识别过程出错:', error);
     throw error;
   }
 }
