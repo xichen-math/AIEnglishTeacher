@@ -119,13 +119,25 @@ async function convertToWav(audioBuffer, inputFormat = 'mp3') {
 }
 
 /**
+ * 格式化时间戳为易读格式
+ * @param {number} timestamp - 时间戳
+ * @returns {string} 格式化的时间字符串
+ */
+function formatTime(timestamp) {
+  const date = new Date(timestamp);
+  return date.toISOString().replace('T', ' ').replace('Z', '');
+}
+
+/**
  * 语音识别函数
  * @param {string} audioFileID - 音频文件的云存储ID
  * @returns {Promise<string>} 识别出的文本
  */
 async function recognizeSpeech(audioFileID) {
+  const startTime = Date.now();
   try {
     console.log('===== 开始语音识别 =====');
+    console.log('开始时间:', formatTime(startTime));
     console.log('音频文件ID:', audioFileID);
     
     // 检查语音识别配置
@@ -136,23 +148,30 @@ async function recognizeSpeech(audioFileID) {
       key: speechKey.substring(0, 4) + '...', // 只显示前4位，保护密钥
       region: speechRegion
     });
-    
+
     // 从云存储下载音频文件
+    const downloadStartTime = Date.now();
+ 
     const audioFile = await cloud.downloadFile({
       fileID: audioFileID
     });
-    
-    console.log('音频文件下载完成');
+    console.log(`下载耗时: ${Date.now() - downloadStartTime}ms`);
     
     // 获取文件扩展名
     const fileExt = path.extname(audioFileID).substring(1).toLowerCase();
     console.log('文件扩展名:', fileExt);
-    
+
     // 转换为WAV格式
+    const convertStartTime = Date.now();
+    console.log(`[Time Check] 开始音频转换: ${formatTime(convertStartTime)}`);
     const wavBuffer = await convertToWav(audioFile.fileContent, fileExt);
-    console.log('音频转换完成，大小:', wavBuffer.length, '字节');
+    console.log(`[Time Check] 音频转换完成: ${formatTime(Date.now())}`);
+    console.log(`转换耗时: ${Date.now() - convertStartTime}ms`);
+    console.log('WAV文件大小:', wavBuffer.length, '字节');
     
     // 使用语音识别SDK
+    const recognizeStartTime = Date.now();
+    console.log(`[Time Check] 开始语音识别: ${formatTime(recognizeStartTime)}`);
     const speechConfig = sdk.SpeechConfig.fromSubscription(
       speechKey,
       speechRegion
@@ -171,9 +190,12 @@ async function recognizeSpeech(audioFileID) {
     
     const recognizer = new sdk.SpeechRecognizer(speechConfig, audioConfig);
     
-    return new Promise((resolve, reject) => {
+    const result = await new Promise((resolve, reject) => {
       recognizer.recognizeOnceAsync(
         result => {
+          const recognizeEndTime = Date.now();
+          console.log(`[Time Check] 语音识别结束: ${formatTime(recognizeEndTime)}`);
+          console.log(`识别耗时: ${recognizeEndTime - recognizeStartTime}ms`);
           console.log('识别结果:', result);
           if (result.reason === sdk.ResultReason.RecognizedSpeech) {
             resolve(result.text);
@@ -187,8 +209,24 @@ async function recognizeSpeech(audioFileID) {
         }
       );
     });
+
+    const endTime = Date.now();
+    console.log('===== 语音识别完成 =====');
+    console.log('完成时间:', formatTime(endTime));
+    console.log('总耗时:', endTime - startTime, 'ms');
+    console.log('各阶段耗时:');
+    console.log(`- 文件下载: ${downloadStartTime - startTime}ms`);
+    console.log(`- 音频转换: ${convertStartTime - downloadStartTime}ms`);
+    console.log(`- 语音识别: ${endTime - recognizeStartTime}ms`);
+
+    return result;
+
   } catch (error) {
-    console.error('语音识别过程出错:', error);
+    const errorTime = Date.now();
+    console.error('===== 语音识别失败 =====');
+    console.error('失败时间:', formatTime(errorTime));
+    console.error('总耗时:', errorTime - startTime, 'ms');
+    console.error('错误详情:', error);
     throw error;
   }
 }
@@ -297,6 +335,8 @@ async function synthesizeSpeech(text, messageId) {
     const cloudPath = `audio/ai/${messageId}.wav`;
     
     try {
+      const UploadStartTime = Date.now();
+  
       const fileContent = await fs.promises.readFile(tempFilePath);
       console.log('读取临时文件成功，大小:', fileContent.length, '字节');
       
@@ -305,7 +345,8 @@ async function synthesizeSpeech(text, messageId) {
         fileContent
       });
       
-      console.log('上传结果:', uploadResult);
+      console.log('上传耗时:', Date.now()-UploadStartTime);
+
       
       // 删除临时文件
       try {
