@@ -423,26 +423,31 @@ async function chat(text, history = []) {
     // 生成消息ID，与Program.cs保持一致
     const messageId = Date.now();
 
-    // 先返回文本响应，异步处理语音合成
-    const aiResponse = {
-      text: aiReply,
-      hasAudio: false,
-      audioUrl: null,
-      messageId,
-      systemPrompt: systemPrompt  // 只在第一次对话时返回
-    };
+    try {
+      // 等待语音合成完成
+      console.log('开始语音合成...');
+      const { audioUrl, hasAudio } = await synthesizeSpeech(aiReply, messageId);
+      console.log('语音合成完成，音频URL:', audioUrl);
 
-    // 异步处理语音合成
-    synthesizeSpeech(aiReply, messageId)
-      .then(async ({ audioUrl, hasAudio }) => {
-        // 这里不需要更新数据库，因为数据库操作应该在云函数的主函数中处理
-        console.log('语音合成完成，音频URL:', audioUrl);
-      })
-      .catch(error => {
-        console.error('异步语音合成失败:', error);
-      });
-
-    return aiResponse;
+      // 返回包含音频URL的响应
+      return {
+        text: aiReply,
+        hasAudio,
+        audioUrl,
+        messageId,
+        systemPrompt: systemPrompt
+      };
+    } catch (synthError) {
+      console.error('语音合成失败:', synthError);
+      // 如果语音合成失败，仍然返回文本响应
+      return {
+        text: aiReply,
+        hasAudio: false,
+        audioUrl: null,
+        messageId,
+        systemPrompt: systemPrompt
+      };
+    }
   } catch (error) {
     console.error('Azure OpenAI API 调用失败:', error);
     
