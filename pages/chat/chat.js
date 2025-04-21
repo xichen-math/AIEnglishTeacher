@@ -210,7 +210,12 @@ Page({
         conversationId: this.data.conversationId
       },
       success: (res) => {
+        console.log('===== 云函数返回结果 =====');
+        console.log('完整返回数据:', res);
+        console.log('result字段:', res.result);
+        
         if (res.result.error) {
+          console.error('云函数返回错误:', res.result.error);
           wx.showToast({
             title: res.result.message || '发送失败',
             icon: 'none'
@@ -219,40 +224,56 @@ Page({
         }
 
         // 添加AI回复
-        if (res.result.aiReply) {
-          messages.push({
+        if (res.result.text) {
+          const aiMessage = {
             type: 'ai',
-            content: res.result.aiReply,
+            content: res.result.text,
             messageId: res.result.messageId,
-            id: newMessageId + 1
-          });
+            id: newMessageId + 1,
+            hasAudio: false,  // 默认为false
+            audioUrl: null    // 默认为null
+          };
+
+          // 检查音频相关字段
+          if (res.result.audioFileID) {  // 先检查audioFileID
+            console.log('检测到audioFileID:', res.result.audioFileID);
+            aiMessage.hasAudio = true;
+            aiMessage.audioUrl = res.result.audioFileID;
+          } else if (res.result.audioUrl) {  // 再检查audioUrl
+            console.log('检测到audioUrl:', res.result.audioUrl);
+            aiMessage.hasAudio = true;
+            aiMessage.audioUrl = res.result.audioUrl;
+          } else {
+            console.warn('未检测到音频URL:', {
+              audioFileID: res.result.audioFileID,
+              audioUrl: res.result.audioUrl
+            });
+          }
+
+          console.log('准备添加AI消息:', aiMessage);
+          messages.push(aiMessage);
 
           this.setData({
             messages,
             scrollToMessage: `msg-${newMessageId + 1}`
           });
 
-          // 检查回复中的关键词
-          const lowerReply = res.result.aiReply.toLowerCase();
-          Object.keys(this.data.wordCoordinates).forEach(word => {
-            if (lowerReply.includes(word.toLowerCase())) {
-              this.highlightWord(word);
-              // 检查是否包含"point to"指令
-              const cleanReply = lowerReply.replace(/[.,'"!?]/g, '');
-              if (cleanReply.includes('can you point to the') || 
-                  cleanReply.includes('point to the') || 
-                  cleanReply.includes('show me the')) {
-                this.setData({
-                  waitingForWordClick: true,
-                  wordToClick: word.toLowerCase()
-                });
-              }
-            }
-          });
+          // 如果有音频回复，自动播放
+          if (aiMessage.hasAudio && aiMessage.audioUrl) {
+            console.log('开始播放音频:', aiMessage.audioUrl);
+            this.playCloudAudio(aiMessage.audioUrl);
+          } else {
+            console.log('无音频需要播放:', {
+              hasAudio: aiMessage.hasAudio,
+              audioUrl: aiMessage.audioUrl
+            });
+          }
+        } else {
+          console.warn('云函数返回数据中没有文本内容');
         }
       },
       fail: (error) => {
-        console.error('发送失败:', error);
+        console.error('调用云函数失败:', error);
         wx.showToast({
           title: '发送失败',
           icon: 'none'
@@ -268,42 +289,105 @@ Page({
    * 播放云存储音频
    */
   playCloudAudio: function(fileID) {
-    // 创建音频实例
-    const innerAudioContext = wx.createInnerAudioContext();
+    console.log('===== 开始播放云存储音频 =====');
+    console.log('音频文件ID:', fileID);
+    
+    // 显示加载提示
+    wx.showLoading({
+      title: '加载音频...'
+    });
+
+    // 确保销毁之前的音频实例
+    if (this.audioContext) {
+      console.log('销毁之前的音频实例');
+      this.audioContext.destroy();
+    }
     
     // 获取音频文件临时链接
     wx.cloud.getTempFileURL({
       fileList: [fileID],
       success: res => {
-        console.log('音频文件临时链接:', res.fileList[0].tempFileURL);
-        innerAudioContext.src = res.fileList[0].tempFileURL;
+        console.log('获取临时链接结果:', res);
         
-        // 监听错误
-        innerAudioContext.onError((err) => {
-          console.error('音频播放错误:', err);
+        if (!res.fileList || res.fileList.length === 0) {
+          console.error('未获取到临时链接');
+          wx.hideLoading();
           wx.showToast({
-            title: '音频播放失败',
+            title: '音频加载失败',
             icon: 'none'
           });
+          return;
+        }
+        
+        const tempFileURL = res.fileList[0].tempFileURL;
+        console.log('音频临时链接:', tempFileURL);
+        
+        // 创建新的音频实例
+        this.audioContext = wx.createInnerAudioContext();
+        
+        // 设置音频源
+        this.audioContext.src = tempFileURL;
+        
+        // 监听加载完成
+        this.audioContext.onCanplay(() => {
+          console.log('音频已准备好播放');
+          wx.hideLoading();
+          
+          // 设置音量并自动播放
+          this.audioContext.volume = 1.0;
+          console.log('开始播放音频');
+          this.audioContext.play();
         });
-
+        
         // 监听播放开始
-        innerAudioContext.onPlay(() => {
+        this.audioContext.onPlay(() => {
           console.log('音频开始播放');
+          wx.showToast({
+            title: '正在播放',
+            icon: 'none',
+            duration: 1500
+          });
         });
-
+        
+        // 监听播放进度
+        this.audioContext.onTimeUpdate(() => {
+          const currentTime = this.audioContext.currentTime;
+          const duration = this.audioContext.duration;
+          console.log(`播放进度: ${currentTime}/${duration}`);
+        });
+        
         // 监听播放结束
-        innerAudioContext.onEnded(() => {
+        this.audioContext.onEnded(() => {
           console.log('音频播放完成');
-          innerAudioContext.destroy();
+          this.audioContext.destroy();
+          this.audioContext = null;
+        });
+        
+        // 监听错误
+        this.audioContext.onError((err) => {
+          console.error('音频播放错误:', err);
+          wx.hideLoading();
+          wx.showToast({
+            title: '播放失败: ' + err.errMsg,
+            icon: 'none'
+          });
+          if (this.audioContext) {
+            this.audioContext.destroy();
+            this.audioContext = null;
+          }
         });
 
-        // 开始播放
-        console.log('触发音频播放');
-        innerAudioContext.play();
+        // 监听音频加载失败
+        this.audioContext.onWaiting(() => {
+          console.log('音频加载中...');
+          wx.showLoading({
+            title: '加载中...'
+          });
+        });
       },
       fail: error => {
-        console.error('获取音频文件链接失败:', error);
+        console.error('获取音频链接失败:', error);
+        wx.hideLoading();
         wx.showToast({
           title: '音频加载失败',
           icon: 'none'
