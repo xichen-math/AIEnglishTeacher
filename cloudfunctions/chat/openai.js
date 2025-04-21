@@ -10,28 +10,40 @@ cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
 });
 
+// Prompt缓存管理
+const promptCache = new Map();
+
 /**
  * 从云存储读取Prompt文件
+ * @param {string} userId - 用户ID
+ * @param {string} conversationId - 会话ID
  * @returns {Promise<string>}
  */
-async function getPromptFromCloud() {
+async function getPromptFromCloud(userId, conversationId) {
+  const cacheKey = `${userId}_${conversationId}`;
+  
+  // 检查缓存
+  if (promptCache.has(cacheKey)) {
+    console.log('使用缓存的Prompt，cacheKey:', cacheKey);
+    return promptCache.get(cacheKey);
+  }
+
   try {
     console.log('开始获取Prompt...');
-    // 直接使用云存储中的Prompt1.txt
     const promptPath = 'cloud://test-6g0nfnc7f85f8936.7465-test-6g0nfnc7f85f8936-1340789122/prompts/Prompt1.txt';
     console.log('使用的Prompt路径:', promptPath);
 
-    // 从云存储下载文件
-    console.log('开始下载Prompt文件...');
     const result = await cloud.downloadFile({
       fileID: promptPath,
     });
     console.log('Prompt文件下载成功');
 
-    // 将文件内容转换为字符串
     const buffer = result.fileContent;
     const prompt = buffer.toString('utf8');
-    console.log('Prompt内容前100个字符:', prompt.substring(0, 100));
+    
+    // 更新缓存
+    promptCache.set(cacheKey, prompt);
+    console.log('Prompt已缓存，cacheKey:', cacheKey);
     
     return prompt;
   } catch (error) {
@@ -343,9 +355,11 @@ async function synthesizeSpeech(text, messageId) {
  * 与OpenAI聊天
  * @param {string} text - 用户输入的文本
  * @param {Array} history - 历史对话记录
+ * @param {string} userId - 用户ID
+ * @param {string} conversationId - 会话ID
  * @returns {Promise<Object>} 聊天结果
  */
-async function chat(text, history = []) {
+async function chat(text, history = [], userId = 'default', conversationId = 'default') {
   try {
     // 检查环境变量
     const envCheck = {
@@ -355,7 +369,7 @@ async function chat(text, history = []) {
     };
 
     // 获取系统提示词
-    let systemPrompt = await getPromptFromCloud();
+    let systemPrompt = await getPromptFromCloud(userId, conversationId);
     
     // 构建消息列表
     const messages = [];
@@ -464,7 +478,7 @@ async function chat(text, history = []) {
     error.retryCount = (error.retryCount || 0) + 1;
     if (error.retryCount < 3) {
       console.log(`重试第 ${error.retryCount} 次`);
-      return chat(text, history);
+      return chat(text, history, userId, conversationId);
     }
     
     throw error;

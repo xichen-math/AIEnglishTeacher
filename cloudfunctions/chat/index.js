@@ -89,7 +89,7 @@ exports.main = async (event, context) => {
 
     // 调用 OpenAI API
     console.log('开始调用OpenAI API');
-    const result = await openai.chat(processedText, history);
+    const result = await openai.chat(processedText, history, userId || 'default', conversationId);
     console.log('OpenAI API 调用成功:', result);
 
     // 保存对话记录
