@@ -51,6 +51,9 @@ Page({
 
     console.log('初始化完成，会话ID:', conversationId);
 
+    // 初始化默认语音配置，以防云函数未返回配置
+    this.initDefaultSpeechConfig();
+
     // 初始化PPT
     this.initSlides();
 
@@ -138,11 +141,157 @@ Page({
   },
 
   /**
+   * 初始化语音合成
+   * @param {Object} config - Azure语音服务配置
+   */
+  initSpeechSynthesis: function(config) {
+    if (!config) {
+      console.error('语音配置为空');
+      return;
+    }
+    this.speechConfig = config;
+  },
+
+  /**
+   * 合成并播放语音
+   * @param {string} text - 要转换为语音的文本
+   * @returns {Promise<void>}
+   */
+  synthesizeAndPlay: function(text) {
+    if (!this.speechConfig) {
+      console.error('语音配置未初始化');
+      this.initDefaultSpeechConfig();
+      if (!this.speechConfig) {
+        return Promise.reject(new Error('语音配置未初始化'));
+      }
+    }
+
+    return new Promise((resolve, reject) => {
+      // 构建Azure TTS REST API的URL
+      const endpoint = `https://${this.speechConfig.region}.tts.speech.microsoft.com/cognitiveservices/v1`;
+      
+      // 转义可能在XML中引起问题的特殊字符
+      const escapedText = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+      
+      const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
+        <voice name="${this.speechConfig.voice}">
+          <prosody rate="1.1" pitch="+0%">
+            ${escapedText}
+          </prosody>
+        </voice>
+      </speak>`;
+
+      // 创建临时变量，避免this的问题
+      const speechConfig = this.speechConfig;
+      
+      wx.request({
+        url: endpoint,
+        method: 'POST',
+        header: {
+          'Content-Type': 'application/ssml+xml',
+          'X-Microsoft-OutputFormat': 'audio-16khz-32kbitrate-mono-mp3',
+          'Ocp-Apim-Subscription-Key': speechConfig.key
+        },
+        data: ssml,
+        responseType: 'arraybuffer',
+        success: (res) => {
+          if (res.statusCode === 200 && res.data && res.data.byteLength > 0) {
+            // 将音频数据写入临时文件
+            const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio_${Date.now()}.mp3`;
+            
+            const fs = wx.getFileSystemManager();
+            try {
+              fs.writeFileSync(tempFilePath, res.data, 'binary');
+              
+              // 创建音频实例并播放
+              const innerAudioContext = wx.createInnerAudioContext();
+              innerAudioContext.src = tempFilePath;
+
+              // 监听音频加载事件
+              innerAudioContext.onCanplay(() => {
+                console.log('音频已加载，可以播放');
+              });
+              
+              innerAudioContext.onPlay(() => {
+                // 可以在这里添加播放开始的UI反馈
+              });
+              
+              innerAudioContext.onError((err) => {
+                console.error('音频播放错误:', err);
+                
+                // 显示播放错误
+                wx.showToast({
+                  title: '播放错误',
+                  icon: 'none'
+                });
+                
+                reject(err);
+                // 清理临时文件
+                try {
+                  fs.unlinkSync(tempFilePath);
+                } catch (e) {}
+              });
+              
+              innerAudioContext.onEnded(() => {
+                resolve();
+                // 清理临时文件
+                try {
+                  fs.unlinkSync(tempFilePath);
+                } catch (e) {}
+                innerAudioContext.destroy();
+              });
+              
+              // 检查文件是否存在并播放
+              try {
+                fs.accessSync(tempFilePath);
+                innerAudioContext.play();
+              } catch (e) {
+                console.error('临时文件无法访问');
+                reject(e);
+              }
+            } catch (error) {
+              console.error('处理音频数据失败:', error);
+              reject(error);
+            }
+          } else {
+            console.error('TTS服务请求失败:', res.statusCode);
+            reject(new Error(`语音合成请求失败: ${res.statusCode}`));
+          }
+        },
+        fail: (error) => {
+          console.error('TTS服务调用失败:', error);
+          
+          // 检查是否为域名问题
+          if (error.errMsg && error.errMsg.includes('request:fail')) {
+            wx.showModal({
+              title: '请求失败',
+              content: '请确保已在小程序管理后台添加相应域名到request合法域名',
+              showCancel: false
+            });
+          }
+          
+          reject(error);
+        }
+      });
+    }).catch(error => {
+      console.error('语音合成失败:', error);
+      wx.showToast({
+        title: '语音播放失败',
+        icon: 'none'
+      });
+      return Promise.reject(error);
+    });
+  },
+
+  /**
    * 处理AI回复消息
    */
-  handleAIResponse: function(aiReply, audioData, messageId) {
-    console.log('开始处理AI回复');
-    
+  handleAIResponse: function(aiReply, speechConfig, messageId) {
     // 准备新消息
     const aiMessage = {
       type: 'ai',
@@ -151,14 +300,29 @@ Page({
     };
 
     // 添加消息到列表
-    console.log('准备添加消息到列表');
     this.addMessage(aiMessage);
+    
+    // 初始化语音合成（如果需要）
+    if (speechConfig && !this.speechConfig) {
+      this.initSpeechSynthesis(speechConfig);
+    } else if (!this.speechConfig && speechConfig) {
+      this.speechConfig = speechConfig;
+    }
+
+    // 合成并播放语音
+    if (this.speechConfig) {
+      this.synthesizeAndPlay(aiReply).then(() => {
+        console.log('语音播放完成');
+      }).catch(err => {
+        console.error('语音播放异常');
+      });
+    } else {
+      console.warn('语音配置不存在，跳过语音合成');
+    }
     
     // 检查单词高亮和点击指令
     const lowerReply = aiReply.toLowerCase();
-    // 检查是否包含指向指令
     if (lowerReply.includes('point to the') || lowerReply.includes('can you point to')) {
-      // 循环所有单词查找匹配
       for (const word in this.data.wordCoordinates) {
         if (lowerReply.includes(word.toLowerCase())) {
           this.highlightWord(word);
@@ -198,6 +362,12 @@ Page({
       scrollToMessage: `msg-${newMessageId}`
     });
 
+    // 如果是测试语音的命令
+    if (userText.toLowerCase().startsWith('/test')) {
+      this.testSpeechSynthesis(userText.substring(5).trim());
+      return;
+    }
+
     // 显示AI正在输入的提示
     wx.showNavigationBarLoading();
 
@@ -206,22 +376,18 @@ Page({
       name: 'chat',
       data: {
         text: userText,
-        userId: app.globalData.userId,
-        conversationId: this.data.conversationId
+        userId: app.globalData.userId || 'default',
+        conversationId: this.data.conversationId,
+        needSpeechConfig: true  // 只需要语音配置，不需要音频文件
       },
       success: (res) => {
-        console.log('===== 云函数返回结果详细信息 =====');
-        console.log('完整返回数据:', JSON.stringify(res, null, 2));
-        console.log('result字段:', JSON.stringify(res.result, null, 2));
-        console.log('音频相关字段:');
-        console.log('- audioFileID:', res.result.audioFileID);
-        console.log('- audioUrl:', res.result.audioUrl);
-        console.log('- audio:', res.result.audio);
-        if (res.result.data) {
-          console.log('- data.audioFileID:', res.result.data.audioFileID);
-          console.log('- data.audioUrl:', res.result.data.audioUrl);
+        // 检查返回结果的结构
+        if (!res.result) {
+          console.error('云函数返回结果为空');
+          return;
         }
-        
+
+        // 检查错误
         if (res.result.error) {
           console.error('云函数返回错误:', res.result.error);
           wx.showToast({
@@ -231,64 +397,39 @@ Page({
           return;
         }
 
-        // 添加AI回复
-        const aiReply = res.result.text || res.result.aiReply || res.result.reply;
-        if (aiReply) {
-          const aiMessage = {
-            type: 'ai',
-            content: aiReply,
-            messageId: Date.now(),
-            id: newMessageId + 1,
-            hasAudio: false,
-            audioUrl: null
+        // 获取AI回复文本
+        const aiReply = res.result.aiReply || res.result.text || res.result.reply;
+        if (!aiReply) {
+          console.error('未获取到AI回复文本');
+          return;
+        }
+
+        // 创建AI消息对象
+        const aiMessage = {
+          type: 'ai',
+          content: aiReply,
+          messageId: Date.now(),
+          id: newMessageId + 1
+        };
+
+        // 更新消息列表
+        messages.push(aiMessage);
+        this.setData({
+          messages,
+          scrollToMessage: `msg-${newMessageId + 1}`
+        });
+
+        // 更新语音配置
+        if (res.result.speechConfig) {
+          this.speechConfig = {
+            key: res.result.speechConfig.key || this.speechConfig?.key,
+            region: res.result.speechConfig.region || this.speechConfig?.region || 'eastus',
+            voice: res.result.speechConfig.voice || this.speechConfig?.voice || 'en-US-AriaNeural'
           };
-
-          // 检查音频文件ID（检查所有可能的字段）
-          const audioFileID = res.result.audioFileID || 
-                            res.result.audioUrl || 
-                            res.result.audio ||
-                            (res.result.data && res.result.data.audioFileID) ||
-                            (res.result.data && res.result.data.audioUrl);
-
-          if (audioFileID) {
-            console.log('===== 检测到音频文件ID =====');
-            console.log('音频文件ID:', audioFileID);
-            console.log('音频文件ID类型:', typeof audioFileID);
-            aiMessage.hasAudio = true;
-            aiMessage.audioUrl = audioFileID;
-            
-            // 立即播放音频
-            console.log('准备播放音频文件:', audioFileID);
-            this.playCloudAudio(audioFileID);
-          } else {
-            console.warn('未检测到音频文件ID，完整返回数据:', JSON.stringify(res.result, null, 2));
-          }
-
-          console.log('准备添加AI消息:', aiMessage);
-          messages.push(aiMessage);
-
-          this.setData({
-            messages,
-            scrollToMessage: `msg-${newMessageId + 1}`
-          });
         }
 
-        // 检查单词高亮和点击指令
-        if (aiReply) {
-          const lowerReply = aiReply.toLowerCase();
-          if (lowerReply.includes('point to the') || lowerReply.includes('can you point to')) {
-            for (const word in this.data.wordCoordinates) {
-              if (lowerReply.includes(word.toLowerCase())) {
-                this.highlightWord(word);
-                this.setData({
-                  waitingForWordClick: true,
-                  wordToClick: word.toLowerCase()
-                });
-                break;
-              }
-            }
-          }
-        }
+        // 使用前端语音合成
+        this.synthesizeAndPlay(aiReply);
       },
       fail: (error) => {
         console.error('调用云函数失败:', error);
@@ -511,47 +652,25 @@ Page({
 
     try {
       // 1. 先将录音文件上传到云存储
-      console.log('===== 开始上传录音文件到云存储 =====');
-      console.log('本地文件路径:', filePath);
-      console.log('目标云存储路径:', `audio/${this.data.conversationId}/${messageId}.mp3`);
-      
       const uploadRes = await wx.cloud.uploadFile({
         cloudPath: `audio/${this.data.conversationId}/${messageId}.mp3`,
         filePath: filePath
       });
-
-      console.log('===== 录音文件上传结果 =====');
-      console.log('云文件ID:', uploadRes.fileID);
-      console.log('上传状态:', uploadRes.errMsg);
 
       if (!uploadRes.fileID) {
         throw new Error('上传录音失败');
       }
 
       // 2. 调用云函数处理语音
-      console.log('===== 开始调用云函数处理语音 =====');
-      console.log('传入参数:', {
-        audioFileID: uploadRes.fileID,
-        userId: app.globalData.userId,
-        conversationId: this.data.conversationId
-      });
-      
       const res = await wx.cloud.callFunction({
         name: 'chat',
         data: {
           audioFileID: uploadRes.fileID,
-          userId: app.globalData.userId,
-          conversationId: this.data.conversationId
+          userId: app.globalData.userId || 'default',
+          conversationId: this.data.conversationId,
+          needSpeechConfig: true  // 只需要语音配置，不需要音频文件
         }
       });
-
-      console.log('===== 云函数处理语音结果 =====');
-      console.log('完整返回数据:', res);
-      console.log('result字段:', res.result);
-      console.log('音频相关字段:');
-      console.log('- audioFileID:', res.result.audioFileID);
-      console.log('- audioUrl:', res.result.audioUrl);
-      console.log('- audio:', res.result.audio);
       
       if (res.result.error) {
         throw new Error(res.result.message || '处理失败');
@@ -559,9 +678,6 @@ Page({
 
       // 3. 添加用户消息
       if (res.result.recognizedText) {
-        console.log('===== 语音识别结果 =====');
-        console.log('识别文本:', res.result.recognizedText);
-        
         messages.push({
           type: 'user',
           content: res.result.recognizedText,
@@ -572,18 +688,14 @@ Page({
 
       // 4. 添加AI回复
       if (res.result.aiReply) {
-        console.log('===== AI回复内容 =====');
-        console.log('回复文本:', res.result.aiReply);
-        console.log('音频URL:', res.result.audioUrl);
-        
-        messages.push({
+        const aiMessage = {
           type: 'ai',
           content: res.result.aiReply,
           messageId: res.result.messageId,
-          id: newMessageId + 1,
-          hasAudio: res.result.hasAudio,
-          audioUrl: res.result.audioUrl
-        });
+          id: newMessageId + 1
+        };
+        
+        messages.push(aiMessage);
       }
 
       // 5. 更新界面
@@ -592,16 +704,22 @@ Page({
         scrollToMessage: `msg-${newMessageId + 1}`
       });
 
-      // 6. 如果有音频回复，播放
-      if (res.result.hasAudio && res.result.audioUrl) {
-        console.log('===== 开始播放AI回复音频 =====');
-        this.playCloudAudio(res.result.audioUrl);
+      // 6. 更新语音配置
+      if (res.result.speechConfig) {
+        this.speechConfig = {
+          key: res.result.speechConfig.key || this.speechConfig?.key,
+          region: res.result.speechConfig.region || this.speechConfig?.region || 'eastus',
+          voice: res.result.speechConfig.voice || this.speechConfig?.voice || 'en-US-AriaNeural'
+        };
+      }
+
+      // 7. 使用前端语音合成播放AI回复
+      if (res.result.aiReply) {
+        this.synthesizeAndPlay(res.result.aiReply);
       }
 
     } catch (error) {
-      console.error('===== 发送语音失败 =====');
-      console.error('错误详情:', error);
-      console.error('错误堆栈:', error.stack);
+      console.error('发送语音失败:', error);
       wx.showToast({
         title: error.message || '发送失败',
         icon: 'none'
@@ -700,7 +818,7 @@ Page({
         name: 'chat',
         data: {
           text,
-          userId: 'default',  // 这里可以根据实际需求设置userId
+          userId: app.globalData.userId || 'default',
           conversationId: this.data.conversationId
         }
       });
@@ -710,23 +828,24 @@ Page({
         const messages = this.data.messages;
         messages.push({
           type: 'user',
-          content: text
+          content: text,
+          messageId: Date.now()
         });
-        messages.push({
-          type: 'ai',
-          content: res.result.aiReply,
-          hasAudio: res.result.hasAudio,
-          audioUrl: res.result.audioUrl
-        });
-        this.setData({ messages });
+        
+        // 处理AI回复
+        this.handleAIResponse(
+          res.result.aiReply,
+          res.result.speechConfig,
+          res.result.messageId
+        );
       } else {
         wx.showToast({
           title: res.result.message || '发送失败',
           icon: 'none'
         });
       }
-    } catch (err) {
-      console.error('发送消息失败:', err);
+    } catch (error) {
+      console.error('发送消息失败:', error);
       wx.showToast({
         title: '发送失败',
         icon: 'none'
@@ -1193,5 +1312,39 @@ Page({
           ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
       });
+  },
+
+  /**
+   * 初始化默认语音配置
+   */
+  initDefaultSpeechConfig: function() {
+    // 如果没有语音配置，添加默认配置
+    if (!this.speechConfig) {
+      this.speechConfig = {
+        region: 'eastus',
+        key: 'bd5f339e632b4544a1c9a300f80c1b0a', // 这里是示例，应替换为真实的key
+        voice: 'en-US-AriaNeural'
+      };
+    }
+  },
+  
+  // 测试语音合成
+  testSpeechSynthesis: function(text) {
+    if (!text) {
+      text = "This is a test of speech synthesis.";
+    }
+    
+    this.synthesizeAndPlay(text).then(() => {
+      wx.showToast({
+        title: '语音测试成功',
+        icon: 'success'
+      });
+    }).catch(err => {
+      console.error('语音测试失败:', err);
+      wx.showToast({
+        title: '语音测试失败',
+        icon: 'none'
+      });
+    });
   },
 }); 

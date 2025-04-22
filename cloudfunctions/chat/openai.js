@@ -206,146 +206,6 @@ async function recognizeSpeech(audioFileID) {
 }
 
 /**
- * 生成SSML
- * @param {string} text - 要转换的文本
- * @returns {string} SSML格式的文本
- */
-function generateSSML(text) {
-  return `
-    <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
-      <voice name="en-US-AriaNeural">
-        <prosody rate="0.9" pitch="+0%">
-          ${text}
-        </prosody>
-      </voice>
-    </speak>
-  `.trim();
-}
-
-/**
- * 语音合成，与Program.cs保持一致的实现
- * @param {string} text - 要转换为语音的文本
- * @param {string} messageId - 消息ID，用于生成音频文件名
- * @returns {Promise<{audioUrl: string, hasAudio: boolean}>}
- */
-async function synthesizeSpeech(text, messageId) {
-  try {
-    console.log('===== 开始语音合成 =====');
-    console.log('文本内容:', text);
-    console.log('消息ID:', messageId);
-    
-    // 创建语音配置，使用与Program.cs相同的key和region
-    const speechConfig = sdk.SpeechConfig.fromSubscription(
-      process.env.AZURE_SPEECH_KEY || "bd5f339e632b4544a1c9a300f80c1b0a",
-      "eastus"
-    );
-
-    // 设置语音合成参数，与Program.cs保持一致
-    speechConfig.speechSynthesisVoiceName = "en-US-AriaNeural";
-    
-    // 使用系统临时目录存储临时文件
-    const tmpDir = process.env.TEMP || process.env.TMP || '/tmp';
-    console.log('使用临时目录:', tmpDir);
-    
-    // 确保临时目录存在
-    try {
-      await fs.promises.mkdir(tmpDir, { recursive: true });
-      console.log('临时目录已确认存在');
-    } catch (err) {
-      console.warn('创建临时目录失败，尝试继续:', err);
-    }
-    
-    // 创建临时文件路径
-    const tempFilePath = path.join(tmpDir, `${messageId}.wav`);
-    console.log('临时文件路径:', tempFilePath);
-    
-    // 创建音频输出流
-    const audioConfig = sdk.AudioConfig.fromAudioFileOutput(tempFilePath);
-    
-    // 创建语音合成器
-    const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
-    
-    // 生成SSML
-    const ssml = generateSSML(text);
-    console.log('生成的SSML:', ssml);
-    
-    // 合成语音
-    console.log('开始合成语音...');
-    await new Promise((resolve, reject) => {
-      synthesizer.speakSsmlAsync(
-        ssml,
-        result => {
-          synthesizer.close();
-          if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
-            console.log('语音合成成功');
-            resolve();
-          } else {
-            console.error('语音合成失败:', result.errorDetails);
-            reject(new Error(result.errorDetails));
-          }
-        },
-        error => {
-          console.error('语音合成错误:', error);
-          synthesizer.close();
-          reject(error);
-        }
-      );
-    });
-    
-    // 检查文件是否存在
-    try {
-      const stats = await fs.promises.stat(tempFilePath);
-      console.log('临时文件状态:', stats);
-      if (!stats.isFile() || stats.size === 0) {
-        throw new Error('生成的音频文件无效');
-      }
-    } catch (err) {
-      console.error('检查临时文件失败:', err);
-      throw new Error(`临时文件检查失败: ${err.message}`);
-    }
-    
-    // 上传到云存储
-    console.log('开始上传音频文件到云存储...');
-    const cloudPath = `audio/ai/${messageId}.wav`;
-    
-    try {
-      const fileContent = await fs.promises.readFile(tempFilePath);
-      console.log('读取临时文件成功，大小:', fileContent.length, '字节');
-      
-      const uploadResult = await cloud.uploadFile({
-        cloudPath,
-        fileContent
-      });
-      
-      console.log('上传结果:', uploadResult);
-      
-      // 删除临时文件
-      try {
-        await fs.promises.unlink(tempFilePath);
-        console.log('临时文件已删除');
-      } catch (unlinkErr) {
-        console.error('删除临时文件失败:', unlinkErr);
-      }
-      
-      return {
-        audioUrl: uploadResult.fileID,
-        hasAudio: true
-      };
-    } catch (uploadErr) {
-      console.error('上传音频文件失败:', uploadErr);
-      throw uploadErr;
-    }
-  } catch (error) {
-    console.error('语音合成失败:', error);
-    console.error('错误堆栈:', error.stack);
-    return {
-      audioUrl: null,
-      hasAudio: false
-    };
-  }
-}
-
-/**
  * @typedef {Object} ChatMessage
  * @property {string} userText - 用户输入的文本
  * @property {string} aiReply - AI的回复
@@ -429,49 +289,35 @@ async function chat(text, history = [], userId = 'default', conversationId = 'de
     let aiReply = response.data.choices[0].message.content;
     console.log('AI回复内容:', aiReply);
 
-    // 处理停止序列，与Program.cs保持一致
+    // 处理停止序列
     if (aiReply.includes("(Pause for Emma's response)")) {
       aiReply = aiReply.split("(Pause for Emma's response)")[0].trim();
     }
 
-    // 生成消息ID，与Program.cs保持一致
+    // 生成消息ID
     const messageId = Date.now();
 
-    try {
-      // 等待语音合成完成
-      console.log('开始语音合成...');
-      const { audioUrl, hasAudio } = await synthesizeSpeech(aiReply, messageId);
-      console.log('语音合成完成，音频URL:', audioUrl);
+    // 返回Azure语音服务配置，供前端使用
+    const speechConfig = {
+      key: process.env.SPEECH_KEY || "bd5f339e632b4544a1c9a300f80c1b0a",
+      region: process.env.SPEECH_REGION || "eastus",
+      voice: "en-US-AriaNeural"
+    };
 
-      // 返回包含音频URL的响应
-      return {
-        text: aiReply,
-        hasAudio,
-        audioUrl,
-        messageId,
-        systemPrompt: systemPrompt
-      };
-    } catch (synthError) {
-      console.error('语音合成失败:', synthError);
-      // 如果语音合成失败，仍然返回文本响应
-      return {
-        text: aiReply,
-        hasAudio: false,
-        audioUrl: null,
-        messageId,
-        systemPrompt: systemPrompt
-      };
-    }
+    return {
+      text: aiReply,
+      messageId,
+      systemPrompt,
+      speechConfig
+    };
   } catch (error) {
     console.error('Azure OpenAI API 调用失败:', error);
     
-    // 实现与Program.cs相同的重试逻辑
     if (error.retryCount >= 3) {
       return {
         text: "Great, can you say it again?",
-        hasAudio: false,
-        audioUrl: null,
-        messageId: Date.now()
+        messageId: Date.now(),
+        speechConfig: null
       };
     }
     

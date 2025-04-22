@@ -101,8 +101,6 @@ exports.main = async (event, context) => {
       userText: processedText,
       aiReply: result.text,
       timestamp: Date.now(),
-      hasAudio: result.hasAudio,
-      audioUrl: result.audioUrl,
       inputType: audioFileID ? 'voice' : 'text'
     };
     console.log('准备保存的记录:', newRecord);
@@ -133,8 +131,7 @@ exports.main = async (event, context) => {
       success: true,
       messageId: result.messageId,
       aiReply: result.text,
-      hasAudio: result.hasAudio,
-      audioUrl: result.audioUrl,
+      speechConfig: result.speechConfig,
       recognizedText: audioFileID ? processedText : undefined
     }
   } catch (error) {
@@ -157,8 +154,7 @@ exports.main = async (event, context) => {
         success: true,
         messageId: Date.now(),
         aiReply: "Great, can you say it again?",
-        hasAudio: false,
-        audioUrl: null
+        speechConfig: null
       };
     }
     
