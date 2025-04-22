@@ -55,6 +55,12 @@
                bindconfirm="sendTextMessage"/>
         <button class="send-button" bindtap="sendTextMessage" disabled="{{!inputText}}">发送</button>
       </view>
+      
+      <!-- 显示实时识别的文本 -->
+      <view wx:if="{{isRecording}}" class="recognition-text">
+        {{recognizedText || '正在识别...'}}
+      </view>
+      
       <view class="controls">
         <button class="chat-button {{isRecording ? 'recording' : ''}}"
                 bindtouchstart="startRecording"

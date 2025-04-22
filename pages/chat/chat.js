@@ -1,4 +1,7 @@
 const app = getApp();
+// 引入微信同声传译插件
+const plugin = requirePlugin('WechatSI');
+const manager = plugin.getRecordRecognitionManager();
 
 Page({
   data: {
@@ -22,13 +25,17 @@ Page({
     trophyPosition: { x: 0, y: 0 },
     waitingForWordClick: false,  // 是否等待用户点击单词
     wordToClick: '',  // 需要点击的单词
-    allSlideCoordinates: {}
+    allSlideCoordinates: {},
+    recognizedText: '',  // 存储识别后的文本
   },
 
   onLoad: function() {
     // 初始化录音管理器
     this.recorderManager = wx.getRecorderManager();
+    // 初始化原有的录音管理器（保留以防需要）
     this.initRecorderManager();
+    // 初始化微信同声传译插件的录音识别管理器
+    this.initPluginRecordManager();
     
     // 生成新的对话ID
     const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -67,7 +74,57 @@ Page({
   },
 
   /**
-   * 初始化录音管理器
+   * 初始化微信同声传译插件的录音识别管理器
+   */
+  initPluginRecordManager: function() {
+    // 识别中（实时返回识别结果）
+    manager.onRecognize = (res) => {
+      console.log('识别中 onRecognize:', res.result);
+      this.setData({
+        recognizedText: res.result || '正在识别...'
+      });
+    };
+
+    // 识别结束（最终结果）
+    manager.onStop = (res) => {
+      console.log('识别结束 onStop:', res);
+      this.setData({ isRecording: false });
+      
+      const text = res.result;
+      if (text && text.trim()) {
+        console.log('识别结果:', text);
+        // 发送识别后的文本
+        this.sendRecognizedText(text);
+      } else {
+        wx.showToast({
+          title: '未能识别，请重试',
+          icon: 'none'
+        });
+      }
+    };
+
+    // 识别开始
+    manager.onStart = () => {
+      console.log('识别开始 onStart');
+      this.setData({ 
+        isRecording: true,
+        recognizedText: '正在识别...' 
+      });
+    };
+
+    // 识别错误
+    manager.onError = (res) => {
+      console.error('识别错误 onError:', res);
+      this.setData({ isRecording: false });
+      wx.showToast({
+        title: '识别失败: ' + (res.msg || '未知错误'),
+        icon: 'none'
+      });
+    };
+  },
+
+  /**
+   * 初始化录音管理器（保留原有功能，但不再使用）
    */
   initRecorderManager: function() {
     // 监听录音开始事件
@@ -78,9 +135,9 @@ Page({
     // 监听录音结束事件
     this.recorderManager.onStop((res) => {
       console.log('===== 录音已结束，文件路径:', res.tempFilePath);
-      const { tempFilePath } = res;
-      // 发送录音文件到服务器进行语音识别
-      this.sendVoiceToServer(tempFilePath);
+      // 不再使用旧的处理方式
+      // const { tempFilePath } = res;
+      // this.sendVoiceToServer(tempFilePath);
     });
     
     // 监听录音错误事件
@@ -94,7 +151,7 @@ Page({
   },
 
   /**
-   * 开始录音
+   * 开始录音 - 使用微信同声传译插件
    */
   startRecording: function() {
     console.log('===== 开始录音 =====');
@@ -104,12 +161,12 @@ Page({
       success: () => {
         this.setData({ isRecording: true });
         console.log('录音权限获取成功，开始录音');
-        this.recorderManager.start({
-          duration: 60000, // 最长录音时间，单位ms
-          sampleRate: 16000,
-          numberOfChannels: 1,
-          encodeBitRate: 48000,
-          format: 'mp3'
+        
+        // 启动微信同声传译插件的语音识别
+        manager.start({
+          lang: 'en_US',  // 英语识别，可根据需要改为 'zh_CN'
+          duration: 60000,  // 最长录音时间，单位ms
+          vadEos: 5000  // 语音后断点，即用户停止说话多长时间后自动停止识别
         });
       },
       fail: () => {
@@ -123,12 +180,110 @@ Page({
   },
 
   /**
-   * 结束录音
+   * 结束录音 - 使用微信同声传译插件
    */
   stopRecording: function() {
     console.log('===== 结束录音 =====');
     this.setData({ isRecording: false });
-    this.recorderManager.stop();
+    manager.stop();  // 停止微信同声传译的语音识别
+  },
+
+  /**
+   * 发送识别后的文本
+   */
+  sendRecognizedText: function(text) {
+    if (!text.trim()) return;
+    
+    const messages = this.data.messages;
+    const newMessageId = messages.length + 1;
+
+    // 立即添加用户消息
+    messages.push({
+      type: 'user',
+      content: text,
+      messageId: Date.now(),
+      id: newMessageId
+    });
+
+    this.setData({
+      messages,
+      scrollToMessage: `msg-${newMessageId}`
+    });
+
+    // 显示AI正在输入的提示
+    wx.showNavigationBarLoading();
+
+    // 调用云函数获取AI回复
+    wx.cloud.callFunction({
+      name: 'chat',
+      data: {
+        text: text,  // 直接发送识别后的文本
+        userId: app.globalData.userId || 'default',
+        conversationId: this.data.conversationId,
+        needSpeechConfig: true
+      },
+      success: (res) => {
+        // 检查返回结果的结构
+        if (!res.result) {
+          console.error('云函数返回结果为空');
+          return;
+        }
+
+        // 检查错误
+        if (res.result.error) {
+          console.error('云函数返回错误:', res.result.error);
+          wx.showToast({
+            title: res.result.message || '发送失败',
+            icon: 'none'
+          });
+          return;
+        }
+
+        // 获取AI回复文本
+        const aiReply = res.result.aiReply || res.result.text || res.result.reply;
+        if (!aiReply) {
+          console.error('未获取到AI回复文本');
+          return;
+        }
+
+        // 创建AI消息对象
+        const aiMessage = {
+          type: 'ai',
+          content: aiReply,
+          messageId: Date.now(),
+          id: newMessageId + 1
+        };
+
+        // 更新消息列表
+        messages.push(aiMessage);
+        this.setData({
+          messages,
+          scrollToMessage: `msg-${newMessageId + 1}`
+        });
+
+        // 更新语音配置
+        if (res.result.speechConfig) {
+          this.speechConfig = {
+            key: res.result.speechConfig.key || this.speechConfig?.key,
+            region: res.result.speechConfig.region || this.speechConfig?.region || 'eastus',
+            voice: res.result.speechConfig.voice || this.speechConfig?.voice || 'en-US-AriaNeural'
+          };
+        }
+
+        // 使用前端语音合成
+        this.synthesizeAndPlay(aiReply);
+      },
+      fail: (error) => {
+        console.error('调用云函数失败:', error);
+        wx.showToast({
+          title: '发送失败',
+          icon: 'none'
+        });
+      },
+      complete: () => {
+        wx.hideNavigationBarLoading();
+      }
+    });
   },
 
   /**
