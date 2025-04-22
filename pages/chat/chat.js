@@ -500,6 +500,23 @@ Page({
     }
 
     const userText = this.data.inputText;
+    
+    // 检查是否为语音识别模拟文本 (以 "/" 开头)
+    if (userText.startsWith('/')) {
+      // 提取实际文本内容 (去掉斜杠)
+      const simulatedVoiceText = userText.substring(1).trim();
+      
+      // 清空输入框
+      this.setData({
+        inputText: ''
+      });
+      
+      // 调用语音识别处理函数
+      console.log('模拟语音识别:', simulatedVoiceText);
+      this.sendRecognizedText(simulatedVoiceText);
+      return;
+    }
+    
     const messages = this.data.messages;
     const newMessageId = messages.length + 1;
 
@@ -516,12 +533,6 @@ Page({
       inputText: '',  // 清空输入框
       scrollToMessage: `msg-${newMessageId}`
     });
-
-    // 如果是测试语音的命令
-    if (userText.toLowerCase().startsWith('/test')) {
-      this.testSpeechSynthesis(userText.substring(5).trim());
-      return;
-    }
 
     // 显示AI正在输入的提示
     wx.showNavigationBarLoading();
