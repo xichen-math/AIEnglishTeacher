@@ -101,6 +101,20 @@
   color: #fff;
 }
 
+/* 实时识别文本样式 */
+.recognition-text {
+  width: 100%;
+  padding: 10rpx 20rpx;
+  margin-bottom: 10rpx;
+  background-color: #f0f8ff;
+  border-radius: 10rpx;
+  font-size: 28rpx;
+  color: #666;
+  min-height: 60rpx;
+  text-align: center;
+  border: 1px dashed #ccc;
+}
+
 .controls {
   display: flex;
   gap: 20rpx;

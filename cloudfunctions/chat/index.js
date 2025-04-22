@@ -15,33 +15,14 @@ const MAX_MESSAGES = 20; // 限制保留的消息数量
 
 // 云函数入口函数
 exports.main = async (event, context) => {
-  const { text, audioFileID, userId, conversationId } = event
+  const { text, userId, conversationId } = event
   const wxContext = cloud.getWXContext()
 
-  console.log('云函数开始执行，输入参数:', { text, audioFileID, userId, conversationId });
+  console.log('云函数开始执行，输入参数:', { text, userId, conversationId });
 
   try {
-    let processedText = text;
-
-    // 如果有音频文件，先进行语音识别
-    if (audioFileID && !text) {
-      console.log('开始语音识别，音频文件ID:', audioFileID);
-      try {
-        processedText = await openai.recognizeSpeech(audioFileID);
-        console.log('语音识别结果:', processedText);
-      } catch (error) {
-        console.error('语音识别失败:', error);
-        return {
-          success: false,
-          error: true,
-          message: '语音识别失败',
-          detail: error.message
-        };
-      }
-    }
-
     // 如果没有有效的输入
-    if (!processedText) {
+    if (!text) {
       console.log('没有有效的输入');
       return {
         success: false,
@@ -51,9 +32,9 @@ exports.main = async (event, context) => {
     }
 
     // 限制输入文本长度
-    processedText = processedText.length > MAX_MESSAGE_LENGTH 
-      ? processedText.substring(0, MAX_MESSAGE_LENGTH) 
-      : processedText;
+    const processedText = text.length > MAX_MESSAGE_LENGTH 
+      ? text.substring(0, MAX_MESSAGE_LENGTH) 
+      : text;
 
     console.log('开始获取历史对话');
     // 获取历史对话记录
@@ -89,7 +70,7 @@ exports.main = async (event, context) => {
 
     // 调用 OpenAI API
     console.log('开始调用OpenAI API');
-    const result = await openai.chat(processedText, history);
+    const result = await openai.chat(processedText, history, userId || 'default', conversationId);
     console.log('OpenAI API 调用成功:', result);
 
     // 保存对话记录
@@ -101,9 +82,7 @@ exports.main = async (event, context) => {
       userText: processedText,
       aiReply: result.text,
       timestamp: Date.now(),
-      hasAudio: result.hasAudio,
-      audioUrl: result.audioUrl,
-      inputType: audioFileID ? 'voice' : 'text'
+      inputType: 'text'
     };
     console.log('准备保存的记录:', newRecord);
 
@@ -133,9 +112,7 @@ exports.main = async (event, context) => {
       success: true,
       messageId: result.messageId,
       aiReply: result.text,
-      hasAudio: result.hasAudio,
-      audioUrl: result.audioUrl,
-      recognizedText: audioFileID ? processedText : undefined
+      speechConfig: result.speechConfig
     }
   } catch (error) {
     console.error('处理对话失败:', error);
@@ -157,8 +134,7 @@ exports.main = async (event, context) => {
         success: true,
         messageId: Date.now(),
         aiReply: "Great, can you say it again?",
-        hasAudio: false,
-        audioUrl: null
+        speechConfig: null
       };
     }
     

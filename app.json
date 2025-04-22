@@ -12,6 +12,12 @@
     "navigationBarTextStyle": "black",
     "pageOrientation": "portrait"
   },
+  "plugins": {
+    "WechatSI": {
+      "version": "latest",
+      "provider": "wx069ba97219f66d99"
+    }
+  },
   "tabBar": {
     "color": "#999999",
     "selectedColor": "#2563EB",
