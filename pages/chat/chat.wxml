@@ -48,7 +48,7 @@
       <view class="input-area">
         <input class="text-input" 
                type="text" 
-               placeholder="输入文字..." 
+               placeholder="输入文字 (用/ 模拟语音)" 
                value="{{inputText}}"
                bindinput="onInputChange"
                confirm-type="send"
