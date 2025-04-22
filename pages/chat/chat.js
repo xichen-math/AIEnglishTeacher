@@ -30,6 +30,21 @@ Page({
     this.recorderManager = wx.getRecorderManager();
     this.initRecorderManager();
     
+    // 自动开始录音
+    this.startRecording();
+    
+    // 添加AI的初始消息
+    const initialMessage = {
+      type: 'ai',
+      content: '欢迎来到课程，我是你的AI英语老师。请开始对话吧！',
+      messageId: Date.now()
+    };
+
+    this.setData({
+      messages: [initialMessage],
+      scrollToMessage: `msg-${initialMessage.messageId}`
+    });
+
     // 生成新的对话ID
     const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
@@ -505,37 +520,18 @@ Page({
    * 发送语音到服务器
    */
   sendVoiceToServer: async function(filePath) {
-    const messageId = Date.now();
-    const messages = this.data.messages;
-    const newMessageId = messages.length + 1;
-
     try {
-      // 1. 先将录音文件上传到云存储
-      console.log('===== 开始上传录音文件到云存储 =====');
-      console.log('本地文件路径:', filePath);
-      console.log('目标云存储路径:', `audio/${this.data.conversationId}/${messageId}.mp3`);
-      
+      // 上传录音文件到云存储
       const uploadRes = await wx.cloud.uploadFile({
-        cloudPath: `audio/${this.data.conversationId}/${messageId}.mp3`,
+        cloudPath: `audio/${this.data.conversationId}/${Date.now()}.mp3`,
         filePath: filePath
       });
-
-      console.log('===== 录音文件上传结果 =====');
-      console.log('云文件ID:', uploadRes.fileID);
-      console.log('上传状态:', uploadRes.errMsg);
 
       if (!uploadRes.fileID) {
         throw new Error('上传录音失败');
       }
 
-      // 2. 调用云函数处理语音
-      console.log('===== 开始调用云函数处理语音 =====');
-      console.log('传入参数:', {
-        audioFileID: uploadRes.fileID,
-        userId: app.globalData.userId,
-        conversationId: this.data.conversationId
-      });
-      
+      // 调用云函数进行语音识别
       const res = await wx.cloud.callFunction({
         name: 'chat',
         data: {
@@ -545,63 +541,34 @@ Page({
         }
       });
 
-      console.log('===== 云函数处理语音结果 =====');
-      console.log('完整返回数据:', res);
-      console.log('result字段:', res.result);
-      console.log('音频相关字段:');
-      console.log('- audioFileID:', res.result.audioFileID);
-      console.log('- audioUrl:', res.result.audioUrl);
-      console.log('- audio:', res.result.audio);
-      
       if (res.result.error) {
         throw new Error(res.result.message || '处理失败');
       }
 
-      // 3. 添加用户消息
+      // 处理识别结果
       if (res.result.recognizedText) {
-        console.log('===== 语音识别结果 =====');
         console.log('识别文本:', res.result.recognizedText);
-        
-        messages.push({
+        this.addMessage({
           type: 'user',
           content: res.result.recognizedText,
-          messageId: messageId,
-          id: newMessageId
+          messageId: Date.now()
         });
       }
 
-      // 4. 添加AI回复
       if (res.result.aiReply) {
-        console.log('===== AI回复内容 =====');
-        console.log('回复文本:', res.result.aiReply);
-        console.log('音频URL:', res.result.audioUrl);
-        
-        messages.push({
+        console.log('AI回复:', res.result.aiReply);
+        this.addMessage({
           type: 'ai',
           content: res.result.aiReply,
-          messageId: res.result.messageId,
-          id: newMessageId + 1,
-          hasAudio: res.result.hasAudio,
-          audioUrl: res.result.audioUrl
+          messageId: Date.now()
         });
       }
 
-      // 5. 更新界面
-      this.setData({
-        messages,
-        scrollToMessage: `msg-${newMessageId + 1}`
-      });
-
-      // 6. 如果有音频回复，播放
-      if (res.result.hasAudio && res.result.audioUrl) {
-        console.log('===== 开始播放AI回复音频 =====');
-        this.playCloudAudio(res.result.audioUrl);
-      }
+      // 自动开始下一次录音
+      this.startRecording();
 
     } catch (error) {
-      console.error('===== 发送语音失败 =====');
-      console.error('错误详情:', error);
-      console.error('错误堆栈:', error.stack);
+      console.error('发送语音失败:', error);
       wx.showToast({
         title: error.message || '发送失败',
         icon: 'none'

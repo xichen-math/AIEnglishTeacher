@@ -56,11 +56,6 @@
         <button class="send-button" bindtap="sendTextMessage" disabled="{{!inputText}}">发送</button>
       </view>
       <view class="controls">
-        <button class="chat-button {{isRecording ? 'recording' : ''}}"
-                bindtouchstart="startRecording"
-                bindtouchend="stopRecording">
-          {{isRecording ? '松开发送' : '按住说话'}}
-        </button>
         <button class="end-button" bindtap="endChat">结束对话</button>
       </view>
     </view>
