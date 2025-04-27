@@ -104,8 +104,8 @@
 /* 实时识别文本样式 */
 .recognition-text {
   width: 100%;
-  padding: 10rpx 20rpx;
-  margin-bottom: 10rpx;
+  padding: 20rpx;
+  margin: 10rpx 0;
   background-color: #f0f8ff;
   border-radius: 10rpx;
   font-size: 28rpx;
@@ -117,23 +117,8 @@
 
 .controls {
   display: flex;
-  gap: 20rpx;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.chat-button {
-  flex: 1;
-  height: 80rpx;
-  line-height: 80rpx;
-  text-align: center;
-  background-color: #1296db;
-  color: #fff;
-  border-radius: 40rpx;
-}
-
-.chat-button.recording {
-  background-color: #e64340;
+  justify-content: flex-end;
+  padding: 10rpx 0;
 }
 
 .end-button {
@@ -144,6 +129,7 @@
   background-color: #999;
   color: #fff;
   border-radius: 40rpx;
+  font-size: 28rpx;
 }
 
 .ppt-container {

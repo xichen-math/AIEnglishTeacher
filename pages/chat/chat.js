@@ -30,12 +30,28 @@ Page({
   },
 
   onLoad: function() {
-    // 初始化录音管理器
-    this.recorderManager = wx.getRecorderManager();
-    // 初始化原有的录音管理器（保留以防需要）
-    this.initRecorderManager();
     // 初始化微信同声传译插件的录音识别管理器
     this.initPluginRecordManager();
+    
+    // 检查并请求录音权限
+    wx.authorize({
+      scope: 'scope.record',
+      success: () => {
+        console.log('✅ 已获取录音权限');
+      },
+      fail: () => {
+        wx.showModal({
+          title: '需要录音权限',
+          content: '请在设置中允许小程序使用录音功能',
+          confirmText: '去设置',
+          success: (res) => {
+            if (res.confirm) {
+              wx.openSetting();
+            }
+          }
+        });
+      }
+    });
     
     // 生成新的对话ID
     const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -71,110 +87,457 @@ Page({
     wx.setPageOrientation({
       orientation: 'portrait'
     });
+
+    // 自动开始录音
+    this.startRecording();
+  },
+
+  onShow: function() {
+    // 页面显示时，如果之前是自动重启模式，则开始录音
+    if (this.autoRestart && !this.data.isRecording) {
+      this.startRecording();
+    }
+  },
+
+  onHide: function() {
+    // 页面隐藏时停止录音，但保持自动重启状态
+    if (this.data.isRecording) {
+      const currentAutoRestart = this.autoRestart;  // 保存当前的自动重启状态
+      this.stopRecording();
+      this.autoRestart = currentAutoRestart;  // 恢复自动重启状态
+    }
+  },
+
+  onUnload: function() {
+    // 页面卸载时完全停止录音
+    this.autoRestart = false;
+    if (this.data.isRecording) {
+      this.stopRecording();
+    }
   },
 
   /**
    * 初始化微信同声传译插件的录音识别管理器
    */
   initPluginRecordManager: function() {
+    if (!plugin || !plugin.getRecordRecognitionManager) {
+      console.error('❌ 语音识别插件未正确加载');
+      wx.showModal({
+        title: '初始化失败',
+        content: '语音识别插件加载失败，请检查插件配置',
+        showCancel: false
+      });
+      return;
+    }
+
+    // 添加静音检测相关的数据
+    this.lastVoiceTime = Date.now();
+    this.lastRecordingEndTime = null;  // 添加记录上次录音结束时间
+    this.silenceTimer = null;
+    this.isListening = false;
+    this.lastRecognizedText = '';
+    this.autoRestart = true;
+    this.errorCount = 0;
+    this.maxErrors = 3;
+
     // 识别中（实时返回识别结果）
     manager.onRecognize = (res) => {
-      console.log('识别中 onRecognize:', res.result);
-      this.setData({
-        recognizedText: res.result || '正在识别...'
-      });
+      console.log('🎤 识别中...', res);
+      
+      // 重置错误计数
+      this.errorCount = 0;
+      
+      // 更新最后一次检测到声音的时间
+      this.lastVoiceTime = Date.now();
+      
+      // 只有当识别结果不为空且与上一次不同时才更新
+      if (res && res.result && res.result !== this.lastRecognizedText) {
+        this.lastRecognizedText = res.result;
+        this.setData({
+          recognizedText: res.result
+        });
+      }
+    };
+
+    // 监听音量变化
+    manager.onVolumeChange = (res) => {
+      console.log('音量变化：', res.data);
+      // 只要有音量变化就更新最后检测时间，不管音量大小
+      this.lastVoiceTime = Date.now();
     };
 
     // 识别结束（最终结果）
     manager.onStop = (res) => {
-      console.log('识别结束 onStop:', res);
-      this.setData({ isRecording: false });
+      console.log('🛑 识别结束:', res);
       
-      const text = res.result;
-      if (text && text.trim()) {
-        console.log('识别结果:', text);
-        // 发送识别后的文本
-        this.sendRecognizedText(text);
+      // 记录停止时间
+      this.lastRecordingEndTime = Date.now();
+      
+      // 清除静音检测定时器
+      if (this.silenceTimer) {
+        clearInterval(this.silenceTimer);
+        this.silenceTimer = null;
+      }
+
+      this.setData({ 
+        isRecording: false,
+        recognizedText: ''
+      });
+      this.isListening = false;
+      
+      // 处理识别结果
+      if (res && res.result) {
+        const recognizedText = res.result.trim();
+        console.log('✨ 识别结果:', recognizedText);
+        
+        if (recognizedText) {
+          // 显示识别结果提示
+          wx.showToast({
+            title: '识别成功',
+            icon: 'success',
+            duration: 1000
+          });
+          
+          // 发送识别后的文本到云函数
+          wx.showLoading({
+            title: '正在思考...'
+          });
+          
+          // 暂时禁用自动重启，等待 AI 回复后再决定是否重启
+          const currentAutoRestart = this.autoRestart;
+          this.autoRestart = false;
+          
+          wx.cloud.callFunction({
+            name: 'chat',
+            data: {
+              text: recognizedText,
+              userId: app.globalData.userId || 'default',
+              conversationId: this.data.conversationId,
+              needSpeechConfig: true
+            },
+            success: (res) => {
+              wx.hideLoading();
+              
+              if (!res.result) {
+                console.error('云函数返回结果为空');
+                this.autoRestart = currentAutoRestart; // 恢复自动重启状态
+                setTimeout(() => { this.startRecording(); }, 1000);
+                return;
+              }
+
+              if (res.result.error) {
+                console.error('云函数返回错误:', res.result.error);
+                wx.showToast({
+                  title: res.result.message || '发送失败',
+                  icon: 'none'
+                });
+                this.autoRestart = currentAutoRestart; // 恢复自动重启状态
+                setTimeout(() => { this.startRecording(); }, 1000);
+                return;
+              }
+
+              // 添加用户消息
+              const messages = this.data.messages;
+              const newMessageId = messages.length + 1;
+              
+              messages.push({
+                type: 'user',
+                content: recognizedText,
+                messageId: Date.now(),
+                id: newMessageId
+              });
+
+              // 获取AI回复文本
+              const aiReply = res.result.aiReply || res.result.text || res.result.reply;
+              if (aiReply) {
+                messages.push({
+                  type: 'ai',
+                  content: aiReply,
+                  messageId: Date.now(),
+                  id: newMessageId + 1
+                });
+
+                // 更新消息列表
+                this.setData({
+                  messages,
+                  scrollToMessage: `msg-${newMessageId + 1}`
+                });
+
+                // 更新语音配置
+                if (res.result.speechConfig) {
+                  this.speechConfig = {
+                    key: res.result.speechConfig.key || this.speechConfig?.key,
+                    region: res.result.speechConfig.region || this.speechConfig?.region || 'eastus',
+                    voice: res.result.speechConfig.voice || this.speechConfig?.voice || 'en-US-AriaNeural'
+                  };
+                }
+
+                // 使用前端语音合成播放回复，播放完成后再开始录音
+                this.synthesizeAndPlay(aiReply)
+                  .then(() => {
+                    console.log('AI语音播放完成，直接开始新录音');
+                    // 恢复自动重启状态
+                    this.autoRestart = currentAutoRestart;
+                    // 重置错误计数
+                    this.errorCount = 0;
+                    // 直接开始新录音
+                    setTimeout(() => { this.startRecording(); }, 1000);
+                  })
+                  .catch(err => {
+                    console.error('AI语音播放失败:', err);
+                    // 即使播放失败也要继续录音
+                    this.autoRestart = currentAutoRestart;
+                    setTimeout(() => { this.startRecording(); }, 1000);
+                  });
+              } else {
+                // 没有AI回复，也要继续录音
+                this.autoRestart = currentAutoRestart;
+                setTimeout(() => { this.startRecording(); }, 1000);
+              }
+            },
+            fail: (error) => {
+              wx.hideLoading();
+              console.error('调用云函数失败:', error);
+              wx.showToast({
+                title: '发送失败',
+                icon: 'none'
+              });
+              
+              // 即使请求失败也要继续录音
+              this.autoRestart = currentAutoRestart;
+              setTimeout(() => { this.startRecording(); }, 1000);
+            }
+          });
+        } else {
+          // 空白识别结果，继续重新开始录音
+          setTimeout(() => { this.startRecording(); }, 1000);
+        }
       } else {
-        wx.showToast({
-          title: '未能识别，请重试',
-          icon: 'none'
-        });
+        // 没有识别结果，继续重新开始录音
+        setTimeout(() => { this.startRecording(); }, 1000);
       }
     };
 
     // 识别开始
     manager.onStart = () => {
-      console.log('识别开始 onStart');
+      console.log('🎯 开始语音识别');
       this.setData({ 
         isRecording: true,
-        recognizedText: '正在识别...' 
+        recognizedText: '正在聆听...' 
       });
+      this.isListening = true;
+      this.lastVoiceTime = Date.now();
+      
+      // 启动静音检测
+      this.startSilenceDetection();
     };
 
     // 识别错误
     manager.onError = (res) => {
-      console.error('识别错误 onError:', res);
-      this.setData({ isRecording: false });
-      wx.showToast({
-        title: '识别失败: ' + (res.msg || '未知错误'),
-        icon: 'none'
+      console.error('❌ 识别错误:', res);
+      
+      // 记录停止时间
+      this.lastRecordingEndTime = Date.now();
+      
+      this.setData({ 
+        isRecording: false,
+        recognizedText: '识别出现错误，正在重试...'
       });
+      this.isListening = false;
+      this.errorCount++;
+      
+      // 清除静音检测定时器
+      if (this.silenceTimer) {
+        clearInterval(this.silenceTimer);
+        this.silenceTimer = null;
+      }
+
+      // 如果是权限错误，提示用户并停止自动重启
+      if (res.errMsg && (res.errMsg.includes('auth') || res.errMsg.includes('permission'))) {
+        this.autoRestart = false;
+        wx.showModal({
+          title: '需要录音权限',
+          content: '请在设置中允许小程序使用录音功能',
+          confirmText: '去设置',
+          success: (res) => {
+            if (res.confirm) {
+              wx.openSetting();
+            }
+          }
+        });
+        return;
+      }
+
+      // 如果是重叠识别错误，增加重试延迟
+      if (res.retcode === -30011) {
+        const retryDelay = 2000;  // 固定2秒延迟
+        setTimeout(() => {
+          console.log('🔄 重新开始录音 (重叠识别错误后)');
+          this.startRecording();
+        }, retryDelay);
+        return;
+      }
+
+      // 其他错误，如果在自动重启模式下，延迟后重试
+      if (this.autoRestart) {
+        const retryDelay = Math.min(2000 + (this.errorCount * 1000), 5000);
+        setTimeout(() => {
+          console.log(`🔄 第${this.errorCount}次重试录音`);
+          this.startRecording();
+        }, retryDelay);
+      }
     };
   },
 
   /**
-   * 初始化录音管理器（保留原有功能，但不再使用）
+   * 开始静音检测
    */
-  initRecorderManager: function() {
-    // 监听录音开始事件
-    this.recorderManager.onStart(() => {
-      console.log('===== 录音已开始 =====');
-    });
+  startSilenceDetection: function() {
+    // 清除可能存在的旧定时器
+    if (this.silenceTimer) {
+      clearInterval(this.silenceTimer);
+    }
     
-    // 监听录音结束事件
-    this.recorderManager.onStop((res) => {
-      console.log('===== 录音已结束，文件路径:', res.tempFilePath);
-      // 不再使用旧的处理方式
-      // const { tempFilePath } = res;
-      // this.sendVoiceToServer(tempFilePath);
-    });
-    
-    // 监听录音错误事件
-    this.recorderManager.onError((err) => {
-      console.error('===== 录音发生错误:', err);
-      wx.showToast({
-        title: '录音失败: ' + err.errMsg,
-        icon: 'none'
-      });
-    });
+    // 每秒检查一次是否静音超过8秒
+    this.silenceTimer = setInterval(() => {
+      if (!this.isListening) {
+        clearInterval(this.silenceTimer);
+        this.silenceTimer = null;
+        return;
+      }
+      
+      const now = Date.now();
+      const silenceDuration = now - this.lastVoiceTime;
+      console.log('⏱️ 静音持续时间:', Math.floor(silenceDuration/1000), '秒');
+      
+      // 如果静音超过8秒，停止录音
+      if (silenceDuration > 3000) {
+        console.log('🔇 检测到8秒静音，自动停止录音');
+        wx.showToast({
+          title: '检测到静音，停止录音',
+          icon: 'none',
+          duration: 1500
+        });
+        this.stopRecording();
+      }
+    }, 1000);
   },
 
   /**
    * 开始录音 - 使用微信同声传译插件
    */
   startRecording: function() {
-    console.log('===== 开始录音 =====');
-    // 请求录音权限
-    wx.authorize({
-      scope: 'scope.record',
-      success: () => {
-        this.setData({ isRecording: true });
-        console.log('录音权限获取成功，开始录音');
+    if (this.data.isRecording) {
+      console.log('已经在录音中，跳过');
+      return;
+    }
+
+    // 添加延迟检查，确保上一次识别已完全结束
+    if (this.lastRecordingEndTime) {
+      const timeSinceLastRecording = Date.now() - this.lastRecordingEndTime;
+      if (timeSinceLastRecording < 1000) {  // 确保至少间隔1秒
+        console.log('距离上次录音结束时间太短，等待后重试...');
+        setTimeout(() => {
+          this.startRecording();
+        }, 1000 - timeSinceLastRecording);
+        return;
+      }
+    }
+
+    console.log('🎙️ 准备开始录音...');
+    
+    // 检查网络状态
+    wx.getNetworkType({
+      success: (res) => {
+        if (res.networkType === 'none') {
+          wx.showToast({
+            title: '请检查网络连接',
+            icon: 'none',
+            duration: 2000
+          });
+          return;
+        }
         
-        // 启动微信同声传译插件的语音识别
-        manager.start({
-          lang: 'en_US',  // 英语识别，可根据需要改为 'zh_CN'
-          duration: 60000,  // 最长录音时间，单位ms
-          vadEos: 5000  // 语音后断点，即用户停止说话多长时间后自动停止识别
+        // 检查录音权限
+        wx.getSetting({
+          success: (res) => {
+            if (!res.authSetting['scope.record']) {
+              wx.authorize({
+                scope: 'scope.record',
+                success: () => {
+                  this.startRecordingWithPermission();
+                },
+                fail: () => {
+                  this.handleRecordingPermissionDenied();
+                }
+              });
+            } else {
+              this.startRecordingWithPermission();
+            }
+          },
+          fail: () => {
+            this.handleRecordingPermissionDenied();
+          }
         });
-      },
-      fail: () => {
-        console.error('录音权限获取失败');
-        wx.showToast({
-          title: '请授权录音权限',
-          icon: 'none'
-        });
+      }
+    });
+  },
+
+  /**
+   * 在获得权限后开始录音
+   */
+  startRecordingWithPermission: function() {
+    console.log('✅ 开始录音，配置参数...');
+    
+    try {
+      // 启动微信同声传译插件的语音识别
+      manager.start({
+        duration: 60000,        // 最长录音时间，设置为60秒
+        lang: "en_US",         // 识别的语言，英语
+        complete: function(res) {
+          console.log('语音识别完成：', res)
+        },
+        volume: 0.1,          // 声音阈值，调低以提高灵敏度
+        rate: 16000,          // 采样率提高到16k
+        engine: 'mixed',      // 使用混合引擎
+        vadEos: 5000,         // 静音检测时间，增加到5秒
+        vadSos: 100,          // 开始检测静音时间，降低以提高响应速度
+        vadMute: 300,         // 静音时间
+        needByte: true,       // 需要字节数据
+        audioSource: "auto"   // 自动选择音频源
+      });
+
+      // 显示录音状态
+      wx.showToast({
+        title: '开始录音',
+        icon: 'none',
+        duration: 1000
+      });
+
+    } catch (error) {
+      console.error('❌ 启动录音失败:', error);
+      wx.showToast({
+        title: '启动录音失败',
+        icon: 'none',
+        duration: 2000
+      });
+    }
+  },
+
+  /**
+   * 处理录音权限被拒绝的情况
+   */
+  handleRecordingPermissionDenied: function() {
+    console.error('❌ 录音权限获取失败');
+    this.autoRestart = false;  // 权限失败时禁用自动重启
+    wx.showModal({
+      title: '需要录音权限',
+      content: '请在设置中允许小程序使用录音功能',
+      confirmText: '去设置',
+      success: (res) => {
+        if (res.confirm) {
+          wx.openSetting();
+        }
       }
     });
   },
@@ -183,105 +546,157 @@ Page({
    * 结束录音 - 使用微信同声传译插件
    */
   stopRecording: function() {
-    console.log('===== 结束录音 =====');
+    console.log('⏹️ 结束录音');
+    this.autoRestart = false;  // 手动停止时禁用自动重启
+    if (this.silenceTimer) {
+      clearInterval(this.silenceTimer);
+      this.silenceTimer = null;
+    }
+    this.isListening = false;
     this.setData({ isRecording: false });
+    
+    // 记录停止时间
+    this.lastRecordingEndTime = Date.now();
+    
     manager.stop();  // 停止微信同声传译的语音识别
   },
 
   /**
-   * 发送识别后的文本
+   * 延迟重新开始录音
    */
-  sendRecognizedText: function(text) {
-    if (!text.trim()) return;
+  restartRecordingAfterDelay: function(delay = 5) {
+    // 如果自动重启被禁用，则不重新开始录音
+    if (!this.autoRestart) {
+      console.log('自动重启被禁用，不重新开始录音');
+      return;
+    }
     
-    const messages = this.data.messages;
-    const newMessageId = messages.length + 1;
+    // 清除可能存在的定时器
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+    }
+    
+    // 设置新的定时器
+    this.restartTimer = setTimeout(() => {
+      // 再次检查是否应该自动重启
+      if (this.autoRestart && !this.data.isRecording) {
+        console.log('开始新的录音');
+        this.startRecordingWithPermission();
+      } else {
+        console.log('跳过录音重启，当前状态: autoRestart=', this.autoRestart, ', isRecording=', this.data.isRecording);
+      }
+    }, delay);
+  },
 
-    // 立即添加用户消息
-    messages.push({
-      type: 'user',
-      content: text,
-      messageId: Date.now(),
-      id: newMessageId
+  /**
+   * 发送识别的文本
+   */
+  sendRecognizedText: function (recognizedText) {
+    // 检查文本是否为空
+    if (!recognizedText || recognizedText.trim() === '') {
+      console.log('识别文本为空，不发送到云函数');
+      // 延迟重新开始录音
+      this.restartRecordingAfterDelay();
+      return;
+    }
+    
+    // 显示加载提示
+    wx.showLoading({
+      title: '思考中...',
     });
-
-    this.setData({
-      messages,
-      scrollToMessage: `msg-${newMessageId}`
-    });
-
-    // 显示AI正在输入的提示
-    wx.showNavigationBarLoading();
-
-    // 调用云函数获取AI回复
+    
+    const app = getApp();
+    const userId = app.globalData.userId || 'default';
+    
+    console.log('发送识别文本到云函数:', recognizedText);
+    console.log('用户ID:', userId);
+    console.log('对话ID:', this.data.conversationId);
+    
+    // 向云函数发送请求
     wx.cloud.callFunction({
-      name: 'chat',
+      name: 'chatWithAI',
       data: {
-        text: text,  // 直接发送识别后的文本
-        userId: app.globalData.userId || 'default',
+        text: recognizedText,
+        userId: userId,
         conversationId: this.data.conversationId,
         needSpeechConfig: true
       },
       success: (res) => {
-        // 检查返回结果的结构
-        if (!res.result) {
+        wx.hideLoading();
+        console.log('云函数返回结果:', res);
+        
+        if (res.result) {
+          // 更新用户消息
+          this.addMessageToList({
+            role: 'user',
+            content: recognizedText
+          });
+          
+          // 获取AI回复
+          const aiReply = res.result.reply || '';
+          console.log('AI回复:', aiReply);
+          
+          // 更新会话ID
+          if (res.result.conversationId) {
+            this.setData({
+              conversationId: res.result.conversationId
+            });
+            console.log('更新会话ID:', res.result.conversationId);
+          }
+          
+          // 更新语音配置
+          if (res.result.speechConfig) {
+            this.speechConfig = res.result.speechConfig;
+            console.log('更新语音配置:', this.speechConfig);
+          }
+          
+          // 如果有AI回复，添加到消息列表并播放
+          if (aiReply) {
+            this.addMessageToList({
+              role: 'assistant',
+              content: aiReply
+            });
+            
+            // 合成并播放AI回复
+            this.synthesizeAndPlay(aiReply)
+              .then(() => {
+                console.log('AI回复播放完成');
+                // 延迟重新开始录音
+                this.restartRecordingAfterDelay();
+              })
+              .catch((error) => {
+                console.error('AI回复播放失败:', error);
+                // 即使播放失败也重新开始录音
+                this.restartRecordingAfterDelay();
+              });
+          } else {
+            console.log('AI回复为空');
+            wx.showToast({
+              title: '未获得AI回复',
+              icon: 'none'
+            });
+            // 延迟重新开始录音
+            this.restartRecordingAfterDelay();
+          }
+        } else {
           console.error('云函数返回结果为空');
-          return;
-        }
-
-        // 检查错误
-        if (res.result.error) {
-          console.error('云函数返回错误:', res.result.error);
           wx.showToast({
-            title: res.result.message || '发送失败',
+            title: '获取回复失败',
             icon: 'none'
           });
-          return;
+          // 延迟重新开始录音
+          this.restartRecordingAfterDelay();
         }
-
-        // 获取AI回复文本
-        const aiReply = res.result.aiReply || res.result.text || res.result.reply;
-        if (!aiReply) {
-          console.error('未获取到AI回复文本');
-          return;
-        }
-
-        // 创建AI消息对象
-        const aiMessage = {
-          type: 'ai',
-          content: aiReply,
-          messageId: Date.now(),
-          id: newMessageId + 1
-        };
-
-        // 更新消息列表
-        messages.push(aiMessage);
-        this.setData({
-          messages,
-          scrollToMessage: `msg-${newMessageId + 1}`
-        });
-
-        // 更新语音配置
-        if (res.result.speechConfig) {
-          this.speechConfig = {
-            key: res.result.speechConfig.key || this.speechConfig?.key,
-            region: res.result.speechConfig.region || this.speechConfig?.region || 'eastus',
-            voice: res.result.speechConfig.voice || this.speechConfig?.voice || 'en-US-AriaNeural'
-          };
-        }
-
-        // 使用前端语音合成
-        this.synthesizeAndPlay(aiReply);
       },
       fail: (error) => {
+        wx.hideLoading();
         console.error('调用云函数失败:', error);
         wx.showToast({
-          title: '发送失败',
+          title: '发送消息失败',
           icon: 'none'
         });
-      },
-      complete: () => {
-        wx.hideNavigationBarLoading();
+        // 延迟重新开始录音
+        this.restartRecordingAfterDelay();
       }
     });
   },
@@ -313,11 +728,19 @@ Page({
    * @returns {Promise<void>}
    */
   synthesizeAndPlay: function(text) {
+    if (!text || text.trim() === '') {
+      console.error('语音合成文本为空');
+      return Promise.reject(new Error('语音合成文本为空'));
+    }
+
+    console.log('开始合成并播放语音...', text.substring(0, 50) + '...');
+    
+    // 确保语音配置存在
     if (!this.speechConfig) {
-      console.error('语音配置未初始化');
+      console.warn('语音配置未初始化，使用默认配置');
       this.initDefaultSpeechConfig();
       if (!this.speechConfig) {
-        return Promise.reject(new Error('语音配置未初始化'));
+        return Promise.reject(new Error('语音配置初始化失败'));
       }
     }
 
@@ -341,8 +764,16 @@ Page({
         </voice>
       </speak>`;
 
-      // 创建临时变量，避免this的问题
-      const speechConfig = this.speechConfig;
+      console.log('正在发送 Azure TTS 请求...');
+      console.log('请求配置:', {
+        region: this.speechConfig.region,
+        voice: this.speechConfig.voice
+      });
+      
+      wx.showLoading({
+        title: '加载语音中...',
+        mask: true
+      });
       
       wx.request({
         url: endpoint,
@@ -350,18 +781,23 @@ Page({
         header: {
           'Content-Type': 'application/ssml+xml',
           'X-Microsoft-OutputFormat': 'audio-16khz-32kbitrate-mono-mp3',
-          'Ocp-Apim-Subscription-Key': speechConfig.key
+          'Ocp-Apim-Subscription-Key': this.speechConfig.key
         },
         data: ssml,
         responseType: 'arraybuffer',
         success: (res) => {
+          wx.hideLoading();
+          
           if (res.statusCode === 200 && res.data && res.data.byteLength > 0) {
+            console.log('Azure TTS 请求成功, 数据大小:', res.data.byteLength, '字节');
+            
             // 将音频数据写入临时文件
             const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio_${Date.now()}.mp3`;
             
             const fs = wx.getFileSystemManager();
             try {
               fs.writeFileSync(tempFilePath, res.data, 'binary');
+              console.log('音频数据写入临时文件成功:', tempFilePath);
               
               // 创建音频实例并播放
               const innerAudioContext = wx.createInnerAudioContext();
@@ -370,10 +806,15 @@ Page({
               // 监听音频加载事件
               innerAudioContext.onCanplay(() => {
                 console.log('音频已加载，可以播放');
+                wx.showToast({
+                  title: 'AI正在说话',
+                  icon: 'none',
+                  duration: 1500
+                });
               });
               
               innerAudioContext.onPlay(() => {
-                // 可以在这里添加播放开始的UI反馈
+                console.log('语音开始播放');
               });
               
               innerAudioContext.onError((err) => {
@@ -381,7 +822,7 @@ Page({
                 
                 // 显示播放错误
                 wx.showToast({
-                  title: '播放错误',
+                  title: '播放错误: ' + err.errMsg,
                   icon: 'none'
                 });
                 
@@ -389,36 +830,55 @@ Page({
                 // 清理临时文件
                 try {
                   fs.unlinkSync(tempFilePath);
-                } catch (e) {}
+                } catch (e) {
+                  console.error('删除临时文件失败:', e);
+                }
               });
               
               innerAudioContext.onEnded(() => {
-                resolve();
+                console.log('AI语音播放完成');
+                
                 // 清理临时文件
                 try {
                   fs.unlinkSync(tempFilePath);
-                } catch (e) {}
+                  console.log('临时音频文件已删除');
+                } catch (e) {
+                  console.error('删除临时文件失败:', e);
+                }
+                
                 innerAudioContext.destroy();
+                resolve();
               });
               
               // 检查文件是否存在并播放
               try {
                 fs.accessSync(tempFilePath);
+                console.log('开始播放语音');
                 innerAudioContext.play();
               } catch (e) {
-                console.error('临时文件无法访问');
+                console.error('临时文件无法访问:', e);
                 reject(e);
               }
             } catch (error) {
               console.error('处理音频数据失败:', error);
+              wx.hideLoading();
+              wx.showToast({
+                title: '音频处理失败',
+                icon: 'none'
+              });
               reject(error);
             }
           } else {
             console.error('TTS服务请求失败:', res.statusCode);
+            wx.showToast({
+              title: 'TTS服务请求失败: ' + res.statusCode,
+              icon: 'none'
+            });
             reject(new Error(`语音合成请求失败: ${res.statusCode}`));
           }
         },
         fail: (error) => {
+          wx.hideLoading();
           console.error('TTS服务调用失败:', error);
           
           // 检查是否为域名问题
@@ -428,12 +888,18 @@ Page({
               content: '请确保已在小程序管理后台添加相应域名到request合法域名',
               showCancel: false
             });
+          } else {
+            wx.showToast({
+              title: 'TTS请求失败: ' + error.errMsg,
+              icon: 'none'
+            });
           }
           
           reject(error);
         }
       });
     }).catch(error => {
+      wx.hideLoading();
       console.error('语音合成失败:', error);
       wx.showToast({
         title: '语音播放失败',
@@ -454,6 +920,10 @@ Page({
       messageId: messageId
     };
 
+    // 暂时禁用自动重启，等待 AI 回复后再决定是否重启
+    const currentAutoRestart = this.autoRestart;
+    this.autoRestart = false;
+
     // 添加消息到列表
     this.addMessage(aiMessage);
     
@@ -468,11 +938,23 @@ Page({
     if (this.speechConfig) {
       this.synthesizeAndPlay(aiReply).then(() => {
         console.log('语音播放完成');
+        // 恢复自动重启状态
+        this.autoRestart = true;
+        // 重置错误计数
+        this.errorCount = 0;
+        // 在语音播放完成后延迟开始新录音
+        this.restartRecordingAfterDelay(1500);
       }).catch(err => {
         console.error('语音播放异常');
+        // 即使播放失败也要恢复自动重启并继续录音
+        this.autoRestart = true;
+        this.restartRecordingAfterDelay(1500);
       });
     } else {
       console.warn('语音配置不存在，跳过语音合成');
+      // 即使没有语音播放也要恢复自动重启并继续录音
+      this.autoRestart = true;
+      this.restartRecordingAfterDelay(1500);
     }
     
     // 检查单词高亮和点击指令
@@ -537,6 +1019,10 @@ Page({
     // 显示AI正在输入的提示
     wx.showNavigationBarLoading();
 
+    // 暂时禁用自动重启，等待 AI 回复后再决定是否重启
+    const currentAutoRestart = this.autoRestart;
+    this.autoRestart = false;
+    
     // 调用云函数获取AI回复
     wx.cloud.callFunction({
       name: 'chat',
@@ -550,6 +1036,8 @@ Page({
         // 检查返回结果的结构
         if (!res.result) {
           console.error('云函数返回结果为空');
+          this.autoRestart = currentAutoRestart;
+          setTimeout(() => { this.startRecording(); }, 1000);
           return;
         }
 
@@ -560,6 +1048,8 @@ Page({
             title: res.result.message || '发送失败',
             icon: 'none'
           });
+          this.autoRestart = currentAutoRestart;
+          setTimeout(() => { this.startRecording(); }, 1000);
           return;
         }
 
@@ -567,6 +1057,8 @@ Page({
         const aiReply = res.result.aiReply || res.result.text || res.result.reply;
         if (!aiReply) {
           console.error('未获取到AI回复文本');
+          this.autoRestart = currentAutoRestart;
+          setTimeout(() => { this.startRecording(); }, 1000);
           return;
         }
 
@@ -594,8 +1086,23 @@ Page({
           };
         }
 
-        // 使用前端语音合成
-        this.synthesizeAndPlay(aiReply);
+        // 使用前端语音合成播放回复，播放完成后再开始录音
+        this.synthesizeAndPlay(aiReply)
+          .then(() => {
+            console.log('AI语音播放完成，直接开始新录音');
+            // 恢复自动重启状态
+            this.autoRestart = currentAutoRestart;
+            // 重置错误计数
+            this.errorCount = 0;
+            // 直接开始新录音
+            setTimeout(() => { this.startRecording(); }, 1000);
+          })
+          .catch(err => {
+            console.error('AI语音播放失败:', err);
+            // 即使播放失败也要继续录音
+            this.autoRestart = currentAutoRestart;
+            setTimeout(() => { this.startRecording(); }, 1000);
+          });
       },
       fail: (error) => {
         console.error('调用云函数失败:', error);
@@ -603,6 +1110,9 @@ Page({
           title: '发送失败',
           icon: 'none'
         });
+        // 即使请求失败也继续录音
+        this.autoRestart = currentAutoRestart;
+        setTimeout(() => { this.startRecording(); }, 1000);
       },
       complete: () => {
         wx.hideNavigationBarLoading();
@@ -1486,11 +1996,13 @@ Page({
   initDefaultSpeechConfig: function() {
     // 如果没有语音配置，添加默认配置
     if (!this.speechConfig) {
+      console.log('初始化默认语音配置');
       this.speechConfig = {
         region: 'eastus',
         key: 'bd5f339e632b4544a1c9a300f80c1b0a', // 这里是示例，应替换为真实的key
         voice: 'en-US-AriaNeural'
       };
+      console.log('默认语音配置已初始化:', this.speechConfig);
     }
   },
   
