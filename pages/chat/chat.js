@@ -207,6 +207,7 @@ Page({
           const currentAutoRestart = this.autoRestart;
           this.autoRestart = false;
           
+          console.log('📤 发送识别文本到云函数:', recognizedText);
           wx.cloud.callFunction({
             name: 'chat',
             data: {
@@ -217,6 +218,7 @@ Page({
             },
             success: (res) => {
               wx.hideLoading();
+              console.log('📥 云函数返回结果:', res.result);
               
               if (!res.result) {
                 console.error('云函数返回结果为空');
@@ -249,6 +251,8 @@ Page({
 
               // 获取AI回复文本
               const aiReply = res.result.aiReply || res.result.text || res.result.reply;
+              console.log('🤖 AI回复:', aiReply);
+              
               if (aiReply) {
                 messages.push({
                   type: 'ai',
@@ -265,6 +269,7 @@ Page({
 
                 // 更新语音配置
                 if (res.result.speechConfig) {
+                  console.log('🔄 更新语音配置:', res.result.speechConfig);
                   this.speechConfig = {
                     key: res.result.speechConfig.key || this.speechConfig?.key,
                     region: res.result.speechConfig.region || this.speechConfig?.region || 'eastus',
@@ -275,29 +280,30 @@ Page({
                 // 使用前端语音合成播放回复，播放完成后再开始录音
                 this.synthesizeAndPlay(aiReply)
                   .then(() => {
-                    console.log('AI语音播放完成，直接开始新录音');
+                    console.log('🎵 AI语音播放完成，立即开始新录音');
                     // 恢复自动重启状态
                     this.autoRestart = currentAutoRestart;
                     // 重置错误计数
                     this.errorCount = 0;
-                    // 直接开始新录音
-                    setTimeout(() => { this.startRecording(); }, 1000);
+                    // 直接开始新录音，去掉等待延迟
+                    this.startRecording();
                   })
                   .catch(err => {
-                    console.error('AI语音播放失败:', err);
+                    console.error('❌ AI语音播放失败:', err);
                     // 即使播放失败也要继续录音
                     this.autoRestart = currentAutoRestart;
-                    setTimeout(() => { this.startRecording(); }, 1000);
+                    this.startRecording(); // 直接开始，去掉延迟
                   });
               } else {
                 // 没有AI回复，也要继续录音
+                console.log('⚠️ 没有获取到AI回复文本');
                 this.autoRestart = currentAutoRestart;
                 setTimeout(() => { this.startRecording(); }, 1000);
               }
             },
             fail: (error) => {
               wx.hideLoading();
-              console.error('调用云函数失败:', error);
+              console.error('❌ 调用云函数失败:', error);
               wx.showToast({
                 title: '发送失败',
                 icon: 'none'
@@ -310,10 +316,12 @@ Page({
           });
         } else {
           // 空白识别结果，继续重新开始录音
+          console.log('⚠️ 识别结果为空，重新开始录音');
           setTimeout(() => { this.startRecording(); }, 1000);
         }
       } else {
         // 没有识别结果，继续重新开始录音
+        console.log('⚠️ 没有识别结果，重新开始录音');
         setTimeout(() => { this.startRecording(); }, 1000);
       }
     };
@@ -564,7 +572,7 @@ Page({
   /**
    * 延迟重新开始录音
    */
-  restartRecordingAfterDelay: function(delay = 5) {
+  restartRecordingAfterDelay: function(delay = 1) { // 将默认延迟改为1毫秒，几乎立即执行
     // 如果自动重启被禁用，则不重新开始录音
     if (!this.autoRestart) {
       console.log('自动重启被禁用，不重新开始录音');
@@ -585,7 +593,7 @@ Page({
       } else {
         console.log('跳过录音重启，当前状态: autoRestart=', this.autoRestart, ', isRecording=', this.data.isRecording);
       }
-    }, delay);
+    }, delay); // 使用极短延迟
   },
 
   /**
@@ -661,13 +669,13 @@ Page({
             this.synthesizeAndPlay(aiReply)
               .then(() => {
                 console.log('AI回复播放完成');
-                // 延迟重新开始录音
-                this.restartRecordingAfterDelay();
+                // 立即重新开始录音
+                this.restartRecordingAfterDelay(1);
               })
               .catch((error) => {
                 console.error('AI回复播放失败:', error);
-                // 即使播放失败也重新开始录音
-                this.restartRecordingAfterDelay();
+                // 即使播放失败也立即重新开始录音
+                this.restartRecordingAfterDelay(1);
               });
           } else {
             console.log('AI回复为空');
@@ -729,21 +737,23 @@ Page({
    */
   synthesizeAndPlay: function(text) {
     if (!text || text.trim() === '') {
-      console.error('语音合成文本为空');
+      console.error('❌ 语音合成文本为空');
       return Promise.reject(new Error('语音合成文本为空'));
     }
 
-    console.log('开始合成并播放语音...', text.substring(0, 50) + '...');
+    console.log('🔊 开始合成并播放语音...', text.substring(0, 50) + (text.length > 50 ? '...' : ''));
     
     // 确保语音配置存在
     if (!this.speechConfig) {
-      console.warn('语音配置未初始化，使用默认配置');
+      console.warn('⚠️ 语音配置未初始化，使用默认配置');
       this.initDefaultSpeechConfig();
       if (!this.speechConfig) {
         return Promise.reject(new Error('语音配置初始化失败'));
       }
     }
 
+    console.log('🎯 使用语音配置:', this.speechConfig);
+    
     return new Promise((resolve, reject) => {
       // 构建Azure TTS REST API的URL
       const endpoint = `https://${this.speechConfig.region}.tts.speech.microsoft.com/cognitiveservices/v1`;
@@ -764,10 +774,12 @@ Page({
         </voice>
       </speak>`;
 
-      console.log('正在发送 Azure TTS 请求...');
-      console.log('请求配置:', {
+      console.log('📡 正在发送 Azure TTS 请求...');
+      console.log('🔧 请求配置:', {
         region: this.speechConfig.region,
-        voice: this.speechConfig.voice
+        voice: this.speechConfig.voice,
+        endpoint: endpoint,
+        key: this.speechConfig.key ? '已设置' : '未设置'
       });
       
       wx.showLoading({
@@ -789,7 +801,7 @@ Page({
           wx.hideLoading();
           
           if (res.statusCode === 200 && res.data && res.data.byteLength > 0) {
-            console.log('Azure TTS 请求成功, 数据大小:', res.data.byteLength, '字节');
+            console.log('✅ Azure TTS 请求成功, 数据大小:', res.data.byteLength, '字节');
             
             // 将音频数据写入临时文件
             const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio_${Date.now()}.mp3`;
@@ -797,7 +809,7 @@ Page({
             const fs = wx.getFileSystemManager();
             try {
               fs.writeFileSync(tempFilePath, res.data, 'binary');
-              console.log('音频数据写入临时文件成功:', tempFilePath);
+              console.log('✅ 音频数据写入临时文件成功:', tempFilePath);
               
               // 创建音频实例并播放
               const innerAudioContext = wx.createInnerAudioContext();
@@ -805,7 +817,7 @@ Page({
 
               // 监听音频加载事件
               innerAudioContext.onCanplay(() => {
-                console.log('音频已加载，可以播放');
+                console.log('🎵 音频已加载，可以播放');
                 wx.showToast({
                   title: 'AI正在说话',
                   icon: 'none',
@@ -814,11 +826,11 @@ Page({
               });
               
               innerAudioContext.onPlay(() => {
-                console.log('语音开始播放');
+                console.log('▶️ 语音开始播放');
               });
               
               innerAudioContext.onError((err) => {
-                console.error('音频播放错误:', err);
+                console.error('❌ 音频播放错误:', err);
                 
                 // 显示播放错误
                 wx.showToast({
@@ -831,19 +843,19 @@ Page({
                 try {
                   fs.unlinkSync(tempFilePath);
                 } catch (e) {
-                  console.error('删除临时文件失败:', e);
+                  console.error('❌ 删除临时文件失败:', e);
                 }
               });
               
               innerAudioContext.onEnded(() => {
-                console.log('AI语音播放完成');
+                console.log('⏹️ AI语音播放完成');
                 
                 // 清理临时文件
                 try {
                   fs.unlinkSync(tempFilePath);
-                  console.log('临时音频文件已删除');
+                  console.log('🧹 临时音频文件已删除');
                 } catch (e) {
-                  console.error('删除临时文件失败:', e);
+                  console.error('❌ 删除临时文件失败:', e);
                 }
                 
                 innerAudioContext.destroy();
@@ -853,14 +865,14 @@ Page({
               // 检查文件是否存在并播放
               try {
                 fs.accessSync(tempFilePath);
-                console.log('开始播放语音');
+                console.log('▶️ 开始播放语音');
                 innerAudioContext.play();
               } catch (e) {
-                console.error('临时文件无法访问:', e);
+                console.error('❌ 临时文件无法访问:', e);
                 reject(e);
               }
             } catch (error) {
-              console.error('处理音频数据失败:', error);
+              console.error('❌ 处理音频数据失败:', error);
               wx.hideLoading();
               wx.showToast({
                 title: '音频处理失败',
@@ -869,7 +881,7 @@ Page({
               reject(error);
             }
           } else {
-            console.error('TTS服务请求失败:', res.statusCode);
+            console.error('❌ TTS服务请求失败:', res.statusCode, res);
             wx.showToast({
               title: 'TTS服务请求失败: ' + res.statusCode,
               icon: 'none'
@@ -879,7 +891,7 @@ Page({
         },
         fail: (error) => {
           wx.hideLoading();
-          console.error('TTS服务调用失败:', error);
+          console.error('❌ TTS服务调用失败:', error);
           
           // 检查是否为域名问题
           if (error.errMsg && error.errMsg.includes('request:fail')) {
@@ -900,7 +912,7 @@ Page({
       });
     }).catch(error => {
       wx.hideLoading();
-      console.error('语音合成失败:', error);
+      console.error('❌ 语音合成失败:', error);
       wx.showToast({
         title: '语音播放失败',
         icon: 'none'
@@ -942,19 +954,19 @@ Page({
         this.autoRestart = true;
         // 重置错误计数
         this.errorCount = 0;
-        // 在语音播放完成后延迟开始新录音
-        this.restartRecordingAfterDelay(1500);
+        // 在语音播放完成后立即开始新录音
+        this.startRecording(); // 立即开始录音
       }).catch(err => {
         console.error('语音播放异常');
         // 即使播放失败也要恢复自动重启并继续录音
         this.autoRestart = true;
-        this.restartRecordingAfterDelay(1500);
+        this.startRecording(); // 立即开始录音
       });
     } else {
       console.warn('语音配置不存在，跳过语音合成');
       // 即使没有语音播放也要恢复自动重启并继续录音
       this.autoRestart = true;
-      this.restartRecordingAfterDelay(1500);
+      this.startRecording(); // 立即开始录音
     }
     
     // 检查单词高亮和点击指令
@@ -1089,19 +1101,19 @@ Page({
         // 使用前端语音合成播放回复，播放完成后再开始录音
         this.synthesizeAndPlay(aiReply)
           .then(() => {
-            console.log('AI语音播放完成，直接开始新录音');
+            console.log('AI语音播放完成，立即开始新录音');
             // 恢复自动重启状态
             this.autoRestart = currentAutoRestart;
             // 重置错误计数
             this.errorCount = 0;
-            // 直接开始新录音
-            setTimeout(() => { this.startRecording(); }, 1000);
+            // 直接开始新录音，去掉等待延迟
+            this.startRecording();
           })
           .catch(err => {
-            console.error('AI语音播放失败:', err);
+            console.error('❌ AI语音播放失败:', err);
             // 即使播放失败也要继续录音
             this.autoRestart = currentAutoRestart;
-            setTimeout(() => { this.startRecording(); }, 1000);
+            this.startRecording(); // 直接开始，去掉延迟
           });
       },
       fail: (error) => {
@@ -1996,13 +2008,13 @@ Page({
   initDefaultSpeechConfig: function() {
     // 如果没有语音配置，添加默认配置
     if (!this.speechConfig) {
-      console.log('初始化默认语音配置');
+      console.log('🛠️ 初始化默认语音配置');
       this.speechConfig = {
         region: 'eastus',
         key: 'bd5f339e632b4544a1c9a300f80c1b0a', // 这里是示例，应替换为真实的key
         voice: 'en-US-AriaNeural'
       };
-      console.log('默认语音配置已初始化:', this.speechConfig);
+      console.log('✅ 默认语音配置已初始化:', this.speechConfig);
     }
   },
   
