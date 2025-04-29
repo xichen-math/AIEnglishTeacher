@@ -56,11 +56,10 @@ Page({
     // 生成新的对话ID
     const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    // 添加欢迎消息
-    const course = app.globalData.selectedCourse;
+    // 创建固定的欢迎消息
     const welcomeMessage = {
       type: 'ai',
-      content: `欢迎来到${course?.name || '基础英语会话'}课程，我是你的AI英语老师，让我们开始对话吧！`,
+      content: "Hello, I am Ravi.",
       messageId: Date.now(),
       id: 1
     };
@@ -88,8 +87,10 @@ Page({
       orientation: 'portrait'
     });
 
-    // 自动开始录音
-    this.startRecording();
+    // 播放欢迎消息，完成后才会开始录音
+    this.playWelcomeMessage();
+    
+    // 注意：这里不再自动开始录音，而是等待欢迎语音播放完成后再开始
   },
 
   onShow: function() {
@@ -741,7 +742,7 @@ Page({
       return Promise.reject(new Error('语音合成文本为空'));
     }
 
-    console.log('🔊 开始合成并播放语音...', text.substring(0, 50) + (text.length > 50 ? '...' : ''));
+    console.log('🔊 开始合成并播放语音...', text);
     
     // 确保语音配置存在
     if (!this.speechConfig) {
@@ -768,7 +769,7 @@ Page({
       
       const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
         <voice name="${this.speechConfig.voice}">
-          <prosody rate="1.1" pitch="+0%">
+          <prosody rate="0.9" pitch="+0%" volume="+30%">
             ${escapedText}
           </prosody>
         </voice>
@@ -792,7 +793,7 @@ Page({
         method: 'POST',
         header: {
           'Content-Type': 'application/ssml+xml',
-          'X-Microsoft-OutputFormat': 'audio-16khz-32kbitrate-mono-mp3',
+          'X-Microsoft-OutputFormat': 'audio-16khz-64kbitrate-mono-mp3',
           'Ocp-Apim-Subscription-Key': this.speechConfig.key
         },
         data: ssml,
@@ -814,6 +815,7 @@ Page({
               // 创建音频实例并播放
               const innerAudioContext = wx.createInnerAudioContext();
               innerAudioContext.src = tempFilePath;
+              innerAudioContext.volume = 1.0; // 设置最大音量
 
               // 监听音频加载事件
               innerAudioContext.onCanplay(() => {
@@ -821,7 +823,7 @@ Page({
                 wx.showToast({
                   title: 'AI正在说话',
                   icon: 'none',
-                  duration: 1500
+                  duration: 2000
                 });
               });
               
@@ -897,7 +899,7 @@ Page({
           if (error.errMsg && error.errMsg.includes('request:fail')) {
             wx.showModal({
               title: '请求失败',
-              content: '请确保已在小程序管理后台添加相应域名到request合法域名',
+              content: '请确保已在小程序管理后台添加相应域名到request合法域名:' + error.errMsg,
               showCancel: false
             });
           } else {
@@ -2011,8 +2013,8 @@ Page({
       console.log('🛠️ 初始化默认语音配置');
       this.speechConfig = {
         region: 'eastus',
-        key: 'bd5f339e632b4544a1c9a300f80c1b0a', // 这里是示例，应替换为真实的key
-        voice: 'en-US-AriaNeural'
+        key: 'bd5f339e632b4544a1c9a300f80c1b0a', // 请确保此key有效
+        voice: 'en-US-GuyNeural' // 使用Guy的男声，更符合Ravi这个名字
       };
       console.log('✅ 默认语音配置已初始化:', this.speechConfig);
     }
@@ -2036,5 +2038,84 @@ Page({
         icon: 'none'
       });
     });
+  },
+
+  /**
+   * 播放欢迎消息，然后开始录音
+   */
+  playWelcomeMessage: function() {
+    console.log('🎙️ 播放欢迎消息开始');
+    // 固定的欢迎消息文本
+    const welcomeText = "Hello, I am Ravi.";
+    
+    // 显示加载提示
+    wx.showLoading({
+      title: '正在准备语音...',
+      mask: true
+    });
+    
+    // 确保已停止任何可能正在进行的录音
+    if (this.data.isRecording) {
+      console.log('停止已有录音以确保语音播放质量');
+      this.stopRecording();
+    }
+    
+    // 临时禁用自动重启录音
+    const originalAutoRestart = this.autoRestart;
+    this.autoRestart = false;
+    
+    // 确保语音配置已初始化
+    if (!this.speechConfig) {
+      this.initDefaultSpeechConfig();
+    }
+    
+    console.log('欢迎消息使用语音配置:', this.speechConfig);
+    
+    // 合成并播放欢迎消息
+    this.synthesizeAndPlay(welcomeText)
+      .then(() => {
+        console.log('👋 欢迎消息播放完成，准备开始录音');
+        wx.hideLoading();
+        
+        // 显示播放完成的提示
+        wx.showToast({
+          title: '请开始说话',
+          icon: 'none',
+          duration: 1500
+        });
+        
+        // 在语音播放完成后，恢复自动重启并开始录音
+        this.autoRestart = originalAutoRestart;
+        
+        // 添加1.5秒延迟再开始录音，确保用户有时间准备
+        setTimeout(() => {
+          console.log('🎙️ 延迟后开始录音');
+          if (!this.data.isRecording) {
+            this.startRecording();
+          }
+        }, 1500);
+      })
+      .catch(err => {
+        console.error('❌ 欢迎消息播放失败:', err);
+        wx.hideLoading();
+        
+        // 恢复自动重启状态
+        this.autoRestart = originalAutoRestart;
+        
+        // 显示错误信息
+        wx.showModal({
+          title: '语音播放失败',
+          content: '欢迎语音播放失败，但您仍可以继续对话。错误详情: ' + (err.message || err.errMsg || '未知错误'),
+          showCancel: false,
+          success: () => {
+            // 即使播放失败也要开始录音
+            setTimeout(() => {
+              if (!this.data.isRecording) {
+                this.startRecording();
+              }
+            }, 1000);
+          }
+        });
+      });
   },
 }); 
