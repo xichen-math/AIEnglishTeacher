@@ -28,6 +28,9 @@ Page({
     allSlideCoordinates: {},
     recognizedText: '',  // 存储识别后的文本
     isAudioPlaying: false,  // 添加标志位，表示是否正在播放音频
+    userAvatarUrl: '', // 用户头像URL
+    hasUserInfo: false, // 是否有用户信息
+    charlotteImageLoaded: false // Charlotte图片是否加载成功
   },
 
   // 全局音频上下文
@@ -56,6 +59,9 @@ Page({
         });
       }
     });
+    
+    // 获取用户信息
+    this.getUserInfoFromStorage();
     
     // 生成新的对话ID
     const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -2171,5 +2177,80 @@ Page({
           }
         });
       });
+  },
+
+  // 从存储中获取用户信息
+  getUserInfoFromStorage: function() {
+    console.log('获取用户信息...');
+    
+    // 尝试从全局数据中获取
+    const userInfo = app.globalData.userInfo;
+    if (userInfo && userInfo.avatarUrl) {
+      console.log('从全局数据获取到用户头像:', userInfo.avatarUrl);
+      this.setData({
+        userAvatarUrl: userInfo.avatarUrl,
+        hasUserInfo: true
+      });
+      return;
+    }
+
+    // 尝试从本地存储获取
+    const storageUserInfo = wx.getStorageSync('userInfo');
+    if (storageUserInfo && storageUserInfo.avatarUrl) {
+      console.log('从本地存储获取到用户头像:', storageUserInfo.avatarUrl);
+      this.setData({
+        userAvatarUrl: storageUserInfo.avatarUrl,
+        hasUserInfo: true
+      });
+      app.globalData.userInfo = storageUserInfo;
+      return;
+    }
+
+    // 使用CSS样式的Charlotte头像，不需要设置图片URL
+    console.log('未找到用户头像，使用CSS样式Charlotte头像');
+    this.setData({
+      hasUserInfo: true  // 设置为true因为我们使用CSS样式头像
+    });
+  },
+
+  // 获取用户信息
+  getUserProfile: function() {
+    wx.getUserProfile({
+      desc: '用于完善用户资料',
+      success: (res) => {
+        console.log('获取用户信息成功:', res);
+        const userInfo = res.userInfo;
+        
+        // 保存到全局数据和本地存储
+        app.globalData.userInfo = userInfo;
+        wx.setStorageSync('userInfo', userInfo);
+        
+        this.setData({
+          userAvatarUrl: userInfo.avatarUrl,
+          hasUserInfo: true
+        });
+      },
+      fail: (err) => {
+        console.error('获取用户信息失败:', err);
+        wx.showToast({
+          title: '获取用户信息失败',
+          icon: 'none'
+        });
+      }
+    });
+  },
+
+  // 处理头像加载错误
+  handleAvatarError: function(e) {
+    console.error('头像加载失败:', e);
+    console.log('当前头像URL:', this.data.userAvatarUrl);
+    
+    // 如果当前头像不是Charlotte头像，则切换到Charlotte头像
+    if (this.data.userAvatarUrl !== "https://dev-tinyao-cdn.vercel.app/charlotte-avatar.jpg") {
+      console.log('切换到Charlotte默认头像');
+      this.setData({
+        userAvatarUrl: "https://dev-tinyao-cdn.vercel.app/charlotte-avatar.jpg"
+      });
+    }
   },
 }); 

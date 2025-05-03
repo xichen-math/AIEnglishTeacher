@@ -36,8 +36,24 @@
     <scroll-view class="chat-list" scroll-y="true" scroll-into-view="{{scrollToMessage}}" scroll-with-animation="true">
       <view class="message-list">
         <block wx:for="{{messages}}" wx:key="id">
-          <view class="message {{item.type === 'ai' ? 'message-ai' : 'message-user'}}" id="msg-{{item.id}}">
-            <view class="message-content">{{item.content}}</view>
+          <!-- AI消息 -->
+          <view wx:if="{{item.type === 'ai'}}" class="message-row ai-message-row" id="msg-{{item.id}}">
+            <view class="avatar ai-avatar">
+              <text class="avatar-text">AI</text>
+            </view>
+            <view class="message ai-message">
+              <view class="message-content">{{item.content}}</view>
+            </view>
+          </view>
+          
+          <!-- 用户消息 -->
+          <view wx:else class="message-row user-message-row" id="msg-{{item.id}}">
+            <view class="message user-message">
+              <view class="message-content">{{item.content}}</view>
+            </view>
+            <view class="avatar user-avatar charlotte-avatar">
+              <text class="avatar-text">C</text>
+            </view>
           </view>
         </block>
       </view>
