@@ -48,11 +48,11 @@
           
           <!-- 用户消息 -->
           <view wx:else class="message-row user-message-row" id="msg-{{item.id}}">
-            <view class="message user-message">
-              <view class="message-content">{{item.content}}</view>
-            </view>
             <view class="avatar user-avatar charlotte-avatar">
               <text class="avatar-text">C</text>
+            </view>
+            <view class="message user-message">
+              <view class="message-content">{{item.content}}</view>
             </view>
           </view>
         </block>
@@ -61,9 +61,17 @@
 
     <!-- 底部操作区 -->
     <view class="footer">
-      <!-- 显示实时识别的文本 -->
-      <view wx:if="{{isRecording}}" class="recognition-text">
-        {{recognizedText || '正在识别...'}}
+      <!-- 豆包风格的语音识别状态 -->
+      <view wx:if="{{isRecording}}" class="douyin-listening-container">
+        <view class="douyin-listening-box">
+          <view class="douyin-listening-icon">
+            <view class="douyin-wave wave1"></view>
+            <view class="douyin-wave wave2"></view>
+            <view class="douyin-wave wave3"></view>
+            <view class="douyin-mic-icon"></view>
+          </view>
+          <view class="douyin-listening-text">{{recognizedText || '正在聆听...'}}</view>
+        </view>
       </view>
       
       <view class="input-area">

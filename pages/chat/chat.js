@@ -151,7 +151,7 @@ Page({
     this.autoRestart = true;
     this.errorCount = 0;
     this.maxErrors = 3;
-
+    
     // 识别中（实时返回识别结果）
     manager.onRecognize = (res) => {
       console.log('🎤 识别中...', res);
@@ -165,8 +165,15 @@ Page({
       // 只有当识别结果不为空且与上一次不同时才更新
       if (res && res.result && res.result !== this.lastRecognizedText) {
         this.lastRecognizedText = res.result;
+        
+        // 美化识别文本显示：如果太长，只显示后半部分
+        let displayText = res.result;
+        if (displayText.length > 30) {
+          displayText = '...' + displayText.substring(displayText.length - 30);
+        }
+        
         this.setData({
-          recognizedText: res.result
+          recognizedText: displayText
         });
       }
     };
@@ -203,7 +210,7 @@ Page({
         console.log('✨ 识别结果:', recognizedText);
         
         if (recognizedText) {
-          // 显示识别结果提示
+          // 显示识别结果提示，使用更符合微信风格的提示
           wx.showToast({
             title: '识别成功',
             icon: 'success',
@@ -361,7 +368,7 @@ Page({
       
       this.setData({ 
         isRecording: false,
-        recognizedText: '识别出现错误，正在重试...'
+        recognizedText: ''
       });
       this.isListening = false;
       this.errorCount++;
@@ -452,24 +459,46 @@ Page({
       return;
     }
 
-    // 添加延迟检查，确保上一次识别已完全结束
+    // 减少间隔检查时间，从1秒改为300毫秒
     if (this.lastRecordingEndTime) {
       const timeSinceLastRecording = Date.now() - this.lastRecordingEndTime;
-      if (timeSinceLastRecording < 1000) {  // 确保至少间隔1秒
+      if (timeSinceLastRecording < 300) {  // 确保至少间隔300毫秒
         console.log('距离上次录音结束时间太短，等待后重试...');
         setTimeout(() => {
           this.startRecording();
-        }, 1000 - timeSinceLastRecording);
+        }, 300 - timeSinceLastRecording);
         return;
       }
     }
 
     console.log('🎙️ 准备开始录音...');
     
-    // 检查网络状态
+    // 使用缓存的网络和权限状态，而不是每次都检查
+    if (this.cachedNetworkOK === false) {
+      wx.showToast({
+        title: '请检查网络连接',
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+    
+    if (this.cachedRecordPermission === false) {
+      this.handleRecordingPermissionDenied();
+      return;
+    }
+    
+    // 如果已经确认过权限，直接开始录音
+    if (this.cachedRecordPermission === true) {
+      this.startRecordingWithPermission();
+      return;
+    }
+    
+    // 首次检查网络和权限
     wx.getNetworkType({
       success: (res) => {
-        if (res.networkType === 'none') {
+        this.cachedNetworkOK = (res.networkType !== 'none');
+        if (!this.cachedNetworkOK) {
           wx.showToast({
             title: '请检查网络连接',
             icon: 'none',
@@ -485,17 +514,21 @@ Page({
               wx.authorize({
                 scope: 'scope.record',
                 success: () => {
+                  this.cachedRecordPermission = true;
                   this.startRecordingWithPermission();
                 },
                 fail: () => {
+                  this.cachedRecordPermission = false;
                   this.handleRecordingPermissionDenied();
                 }
               });
             } else {
+              this.cachedRecordPermission = true;
               this.startRecordingWithPermission();
             }
           },
           fail: () => {
+            this.cachedRecordPermission = false;
             this.handleRecordingPermissionDenied();
           }
         });
@@ -873,35 +906,53 @@ Page({
                 }
               });
               
+              // 优化：提前初始化下一次录音的准备，减少延迟
+              const prepareNextRecording = () => {
+                // 先设置自动重启状态为true
+                if (!isWelcomeMessage) {
+                  this.autoRestart = true;
+                }
+                
+                // 提前记录录音结束时间，避免后续再赋值
+                this.lastRecordingEndTime = Date.now() - 500; // 减去500ms使其能立即启动
+              };
+              
               this.audioContext.onEnded(() => {
                 console.log('⏹️ AI语音播放完成');
                 
                 // 重置播放标志
                 this.setData({ isAudioPlaying: false });
                 
-                // 清理临时文件
-                try {
-                  fs.unlinkSync(tempFilePath);
-                  console.log('🧹 临时音频文件已删除');
-                } catch (e) {
-                  console.error('❌ 删除临时文件失败:', e);
-                }
+                // 准备下一次录音
+                prepareNextRecording();
                 
-                // 销毁音频实例
-                this.audioContext.destroy();
-                this.audioContext = null;
+                // 异步处理临时文件删除，不阻塞录音启动
+                setTimeout(() => {
+                  try {
+                    fs.unlinkSync(tempFilePath);
+                    console.log('🧹 临时音频文件已删除');
+                    this.audioContext?.destroy();
+                    this.audioContext = null;
+                  } catch (e) {
+                    console.error('❌ 删除临时文件失败:', e);
+                  }
+                }, 100);
                 
                 // 优化处理：如果是欢迎消息，直接解析Promise让外部控制录音启动
-                // 如果是普通AI回复，则自动开始录音
+                // 如果是普通AI回复，则自动开始录音，并优先解决Promise
                 if (!isWelcomeMessage && !this.data.isRecording) {
                   console.log('🎙️ 普通AI回复播放完成，立即开始录音');
+                  // 先解析Promise，让外部逻辑继续执行
+                  resolve();
+                  // 立即开始录音，不使用setTimeout
                   this.startRecording();
                 } else if (isWelcomeMessage) {
                   console.log('👋 欢迎消息播放完成，立即开始录音');
                   // 欢迎消息不在这里启动录音，而是在playWelcomeMessage函数中控制
+                  resolve();
+                } else {
+                  resolve();
                 }
-                
-                resolve();
               });
               
               // 检查文件是否存在并播放
