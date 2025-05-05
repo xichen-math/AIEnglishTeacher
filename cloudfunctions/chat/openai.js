@@ -80,6 +80,9 @@ async function chat(text, history = [], userId = 'default', conversationId = 'de
     // 添加系统消息
     messages.push({ role: 'system', content: systemPrompt });
     
+    // 添加初始助手消息作为固定欢迎语
+    messages.push({ role: 'assistant', content: "Hello, I am Ravi." });
+    
     // 添加历史消息
     for (const msg of history) {
       if (msg.role === 'system') {

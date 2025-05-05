@@ -36,8 +36,24 @@
     <scroll-view class="chat-list" scroll-y="true" scroll-into-view="{{scrollToMessage}}" scroll-with-animation="true">
       <view class="message-list">
         <block wx:for="{{messages}}" wx:key="id">
-          <view class="message {{item.type === 'ai' ? 'message-ai' : 'message-user'}}" id="msg-{{item.id}}">
-            <view class="message-content">{{item.content}}</view>
+          <!-- AI消息 -->
+          <view wx:if="{{item.type === 'ai'}}" class="message-row ai-message-row" id="msg-{{item.id}}">
+            <view class="avatar ai-avatar">
+              <text class="avatar-text">AI</text>
+            </view>
+            <view class="message ai-message">
+              <view class="message-content">{{item.content}}</view>
+            </view>
+          </view>
+          
+          <!-- 用户消息 -->
+          <view wx:else class="message-row user-message-row" id="msg-{{item.id}}">
+            <view class="avatar user-avatar charlotte-avatar">
+              <text class="avatar-text">C</text>
+            </view>
+            <view class="message user-message">
+              <view class="message-content">{{item.content}}</view>
+            </view>
           </view>
         </block>
       </view>
@@ -45,6 +61,19 @@
 
     <!-- 底部操作区 -->
     <view class="footer">
+      <!-- 豆包风格的语音识别状态 -->
+      <view wx:if="{{isRecording}}" class="douyin-listening-container">
+        <view class="douyin-listening-box">
+          <view class="douyin-listening-icon">
+            <view class="douyin-wave wave1"></view>
+            <view class="douyin-wave wave2"></view>
+            <view class="douyin-wave wave3"></view>
+            <view class="douyin-mic-icon"></view>
+          </view>
+          <view class="douyin-listening-text">{{recognizedText || '正在聆听...'}}</view>
+        </view>
+      </view>
+      
       <view class="input-area">
         <input class="text-input" 
                type="text" 
@@ -56,17 +85,7 @@
         <button class="send-button" bindtap="sendTextMessage" disabled="{{!inputText}}">发送</button>
       </view>
       
-      <!-- 显示实时识别的文本 -->
-      <view wx:if="{{isRecording}}" class="recognition-text">
-        {{recognizedText || '正在识别...'}}
-      </view>
-      
       <view class="controls">
-        <button class="chat-button {{isRecording ? 'recording' : ''}}"
-                bindtouchstart="startRecording"
-                bindtouchend="stopRecording">
-          {{isRecording ? '松开发送' : '按住说话'}}
-        </button>
         <button class="end-button" bindtap="endChat">结束对话</button>
       </view>
     </view>
