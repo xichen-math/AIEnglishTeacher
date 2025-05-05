@@ -217,6 +217,23 @@ Page({
             duration: 1000
           });
           
+          // 【修改】：先添加用户消息，不等待AI回复
+          const messages = this.data.messages;
+          const newMessageId = messages.length + 1;
+          
+          messages.push({
+            type: 'user',
+            content: recognizedText,
+            messageId: Date.now(),
+            id: newMessageId
+          });
+          
+          // 立即更新消息列表，展示用户消息
+          this.setData({
+            messages,
+            scrollToMessage: `msg-${newMessageId}`
+          });
+          
           // 发送识别后的文本到云函数
           wx.showLoading({
             title: '正在思考...'
@@ -257,22 +274,12 @@ Page({
                 return;
               }
 
-              // 添加用户消息
-              const messages = this.data.messages;
-              const newMessageId = messages.length + 1;
-              
-              messages.push({
-                type: 'user',
-                content: recognizedText,
-                messageId: Date.now(),
-                id: newMessageId
-              });
-
               // 获取AI回复文本
               const aiReply = res.result.aiReply || res.result.text || res.result.reply;
               console.log('🤖 AI回复:', aiReply);
               
               if (aiReply) {
+                // 【修改】：因为用户消息已经添加，这里只需添加AI回复
                 messages.push({
                   type: 'ai',
                   content: aiReply,
@@ -280,7 +287,7 @@ Page({
                   id: newMessageId + 1
                 });
 
-                // 更新消息列表
+                // 更新消息列表，展示AI回复
                 this.setData({
                   messages,
                   scrollToMessage: `msg-${newMessageId + 1}`
@@ -347,13 +354,16 @@ Page({
 
     // 识别开始
     manager.onStart = () => {
-      console.log('🎯 开始语音识别');
-      this.setData({ 
-        isRecording: true,
-        recognizedText: '正在聆听...' 
-      });
-      this.isListening = true;
-      this.lastVoiceTime = Date.now();
+      const recognitionStartTime = Date.now();
+      console.log(`⏱️ [${recognitionStartTime}] 微信录音识别引擎实际启动`);
+      
+      // 计算总延迟
+      const totalDelay = recognitionStartTime - this._audioEndTime;
+      console.log(`🔍 总延迟分析: AI语音结束到录音识别启动共耗时 ${totalDelay}ms`);
+      
+      // 因为已在startRecordingWithPermission提前设置了状态，这里不需要重复设置
+      // 只需确保其他操作正常执行
+      this.lastVoiceTime = recognitionStartTime;
       
       // 启动静音检测
       this.startSilenceDetection();
@@ -454,121 +464,65 @@ Page({
    * 开始录音 - 使用微信同声传译插件
    */
   startRecording: function() {
+    const recordingStartTime = Date.now();
+    
+    // 如果已经在录音中，直接返回
     if (this.data.isRecording) {
-      console.log('已经在录音中，跳过');
+      console.log(`⏱️ [${recordingStartTime}] 已经在录音中，跳过`);
       return;
     }
 
-    // 减少间隔检查时间，从1秒改为300毫秒
-    if (this.lastRecordingEndTime) {
-      const timeSinceLastRecording = Date.now() - this.lastRecordingEndTime;
-      if (timeSinceLastRecording < 300) {  // 确保至少间隔300毫秒
-        console.log('距离上次录音结束时间太短，等待后重试...');
-        setTimeout(() => {
-          this.startRecording();
-        }, 300 - timeSinceLastRecording);
-        return;
-      }
-    }
-
-    console.log('🎙️ 准备开始录音...');
+    console.log(`⏱️ [${recordingStartTime}] startRecording 开始执行`);
     
-    // 使用缓存的网络和权限状态，而不是每次都检查
-    if (this.cachedNetworkOK === false) {
-      wx.showToast({
-        title: '请检查网络连接',
-        icon: 'none',
-        duration: 2000
-      });
-      return;
-    }
+    // 记录当前时间作为录音开始时间
+    this.lastRecordingEndTime = recordingStartTime;
     
-    if (this.cachedRecordPermission === false) {
-      this.handleRecordingPermissionDenied();
-      return;
-    }
-    
-    // 如果已经确认过权限，直接开始录音
-    if (this.cachedRecordPermission === true) {
-      this.startRecordingWithPermission();
-      return;
-    }
-    
-    // 首次检查网络和权限
-    wx.getNetworkType({
-      success: (res) => {
-        this.cachedNetworkOK = (res.networkType !== 'none');
-        if (!this.cachedNetworkOK) {
-          wx.showToast({
-            title: '请检查网络连接',
-            icon: 'none',
-            duration: 2000
-          });
-          return;
-        }
-        
-        // 检查录音权限
-        wx.getSetting({
-          success: (res) => {
-            if (!res.authSetting['scope.record']) {
-              wx.authorize({
-                scope: 'scope.record',
-                success: () => {
-                  this.cachedRecordPermission = true;
-                  this.startRecordingWithPermission();
-                },
-                fail: () => {
-                  this.cachedRecordPermission = false;
-                  this.handleRecordingPermissionDenied();
-                }
-              });
-            } else {
-              this.cachedRecordPermission = true;
-              this.startRecordingWithPermission();
-            }
-          },
-          fail: () => {
-            this.cachedRecordPermission = false;
-            this.handleRecordingPermissionDenied();
-          }
-        });
-      }
-    });
+    // 直接开始录音，不做任何权限或网络检查
+    // 这些检查已在预热阶段完成，无需重复检查
+    this.startRecordingWithPermission();
   },
 
   /**
    * 在获得权限后开始录音
    */
   startRecordingWithPermission: function() {
-    console.log('✅ 开始录音，配置参数...');
+    const startTime = Date.now();
+    console.log(`⏱️ [${startTime}] startRecordingWithPermission 开始执行`);
+    console.log(`⏱️ [${Date.now()}] 调用manager.start前，耗时: ${Date.now() - startTime}ms`);
+    
+    // 立即设置正在聆听状态，提前显示UI反馈
+    this.setData({ 
+      isRecording: true,
+      recognizedText: '正在聆听...' 
+    });
+    this.isListening = true;
     
     try {
-      // 启动微信同声传译插件的语音识别
-      manager.start({
-        duration: 60000,        // 最长录音时间，设置为60秒
-        lang: "en_US",         // 识别的语言，英语
-        complete: function(res) {
-          console.log('语音识别完成：', res)
-        },
-        volume: 0.1,          // 声音阈值，调低以提高灵敏度
-        rate: 16000,          // 采样率提高到16k
-        engine: 'mixed',      // 使用混合引擎
-        vadEos: 5000,         // 静音检测时间，增加到5秒
-        vadSos: 100,          // 开始检测静音时间，降低以提高响应速度
-        vadMute: 300,         // 静音时间
-        needByte: true,       // 需要字节数据
-        audioSource: "auto"   // 自动选择音频源
+      // 使用预热时缓存的参数启动语音识别
+      console.log(`⏱️ [${Date.now()}] 调用manager.start前，耗时: ${Date.now() - startTime}ms`);
+      
+      manager.start(this._recordParams || {
+        duration: 60000,
+        lang: "en_US",
+        volume: 0.1,
+        rate: 16000,
+        engine: 'mixed',
+        vadEos: 2000,
+        vadSos: 50,
+        vadMute: 200,
+        needByte: true,
+        audioSource: "auto"
       });
-
-      // 显示录音状态
-      wx.showToast({
-        title: '开始录音',
-        icon: 'none',
-        duration: 1000
-      });
-
+      
+      console.log(`⏱️ [${Date.now()}] 调用manager.start后，耗时: ${Date.now() - startTime}ms`);
     } catch (error) {
       console.error('❌ 启动录音失败:', error);
+      this.setData({ 
+        isRecording: false,
+        recognizedText: '' 
+      });
+      this.isListening = false;
+      
       wx.showToast({
         title: '启动录音失败',
         icon: 'none',
@@ -786,7 +740,7 @@ Page({
       return Promise.reject(new Error('语音合成文本为空'));
     }
 
-    console.log('🔊 开始合成并播放语音...', text);
+    console.log('🔊 开始合成并播放语音...');
     
     // 确保语音配置存在
     if (!this.speechConfig) {
@@ -802,7 +756,19 @@ Page({
 
     // 判断是否为欢迎语句
     const isWelcomeMessage = text === "Hello, I am Ravi.";
-    console.log('是否为欢迎消息:', isWelcomeMessage);
+    
+    // 提前将自动重启设置为true，不再等待音频播放完成
+    if (!isWelcomeMessage) {
+      this.autoRestart = true;
+    }
+    
+    // 提前预热录音环境，不等到音频播放过程中
+    if (!isWelcomeMessage) {
+      this.preWarmRecording();
+    }
+    
+    // 缓存录音结束时间，避免后续可能的延迟检查
+    this.lastRecordingEndTime = Date.now() - 1000;
 
     console.log('🎯 使用语音配置:', this.speechConfig);
     
@@ -914,42 +880,52 @@ Page({
                 }
                 
                 // 提前记录录音结束时间，避免后续再赋值
-                this.lastRecordingEndTime = Date.now() - 500; // 减去500ms使其能立即启动
+                this.lastRecordingEndTime = Date.now() - 1000; // 减去1000ms，完全消除间隔限制
+                
+                // 预热录音环境，提前获取权限
+                if (!isWelcomeMessage) {
+                  // 提前准备录音环境，但不立即开始
+                  this.preWarmRecording();
+                }
               };
               
+              // 在音频播放到20%时就预热录音环境
+              this.audioContext.onTimeUpdate(() => {
+                const progress = this.audioContext.currentTime / this.audioContext.duration;
+                if (progress > 0.2 && !this._preWarmedRecording && !isWelcomeMessage) {
+                  this._preWarmedRecording = true;
+                  prepareNextRecording();
+                }
+              });
+              
               this.audioContext.onEnded(() => {
-                console.log('⏹️ AI语音播放完成');
+                // 记录音频播放结束时间戳
+                const audioEndTime = Date.now();
+                console.log(`⏱️ [${audioEndTime}] AI语音播放完成`);
+                
+                // 保存到全局变量以便后续计算延迟
+                this._audioEndTime = audioEndTime;
                 
                 // 重置播放标志
                 this.setData({ isAudioPlaying: false });
                 
-                // 准备下一次录音
-                prepareNextRecording();
+                // 重置预热标记
+                this._preWarmedRecording = false;
                 
-                // 异步处理临时文件删除，不阻塞录音启动
+                // 异步处理临时文件删除，进一步延迟处理避免影响录音启动
                 setTimeout(() => {
-                  try {
-                    fs.unlinkSync(tempFilePath);
-                    console.log('🧹 临时音频文件已删除');
-                    this.audioContext?.destroy();
-                    this.audioContext = null;
-                  } catch (e) {
-                    console.error('❌ 删除临时文件失败:', e);
-                  }
-                }, 100);
+                  this.cleanupAudioFiles(tempFilePath);
+                }, 500);
                 
-                // 优化处理：如果是欢迎消息，直接解析Promise让外部控制录音启动
-                // 如果是普通AI回复，则自动开始录音，并优先解决Promise
-                if (!isWelcomeMessage && !this.data.isRecording) {
-                  console.log('🎙️ 普通AI回复播放完成，立即开始录音');
-                  // 先解析Promise，让外部逻辑继续执行
+                // 播放结束立即启动录音，不管是什么类型的消息
+                if (!this.data.isRecording) {
+                  console.log(`⏱️ [${Date.now()}] 准备开始录音，距离播放结束: ${Date.now() - audioEndTime}ms`);
+                  // 先解析Promise
                   resolve();
-                  // 立即开始录音，不使用setTimeout
+                  // 立即设置自动重启
+                  this.autoRestart = true;
+                  // 立即开始录音
                   this.startRecording();
-                } else if (isWelcomeMessage) {
-                  console.log('👋 欢迎消息播放完成，立即开始录音');
-                  // 欢迎消息不在这里启动录音，而是在playWelcomeMessage函数中控制
-                  resolve();
                 } else {
                   resolve();
                 }
@@ -1026,6 +1002,61 @@ Page({
       
       return Promise.reject(error);
     });
+  },
+
+  /**
+   * 异步清理音频文件，不阻塞主流程
+   */
+  cleanupAudioFiles: function(tempFilePath) {
+    setTimeout(() => {
+      try {
+        const fs = wx.getFileSystemManager();
+        fs.unlinkSync(tempFilePath);
+        console.log('🧹 临时音频文件已删除');
+        this.audioContext?.destroy();
+        this.audioContext = null;
+      } catch (e) {
+        console.error('❌ 删除临时文件失败:', e);
+      }
+    }, 100);
+  },
+
+  /**
+   * 提前预热录音环境但不实际开始
+   */
+  preWarmRecording: function() {
+    console.log('🔥 预热录音环境...');
+    
+    // 立即缓存网络状态为正常
+    this.cachedNetworkOK = true;
+    
+    // 立即缓存录音权限为已授权
+    this.cachedRecordPermission = true;
+    
+    // 提前准备微信录音插件的参数
+    this._recordParams = {
+      duration: 60000,        // 最长录音时间
+      lang: "en_US",          // 识别英语
+      volume: 0.1,            // 声音阈值，调低以提高灵敏度
+      rate: 16000,            // 采样率
+      engine: 'mixed',        // 混合引擎
+      vadEos: 2000,           // 降低静音检测时间以更快结束录音
+      vadSos: 50,             // 大幅降低开始检测时间以提高响应速度
+      vadMute: 200,           // 降低静音时间
+      needByte: true,
+      audioSource: "auto"
+    };
+    
+    // 预先强制结束可能存在的旧录音
+    try {
+      // 检查之前的录音是否还在进行中
+      if (this.isListening || this.data.isRecording) {
+        // 尝试停止可能存在的旧录音
+        manager.stop();
+      }
+    } catch (e) {
+      console.log('预热时尝试停止旧录音', e);
+    }
   },
 
   /**
@@ -1158,7 +1189,9 @@ Page({
     });
 
     // 显示AI正在输入的提示
-    wx.showNavigationBarLoading();
+    wx.showLoading({
+      title: '正在思考...'
+    });
 
     // 确保自动重启录音被启用
     this.autoRestart = true;
@@ -1173,6 +1206,8 @@ Page({
         needSpeechConfig: true  // 只需要语音配置，不需要音频文件
       },
       success: (res) => {
+        wx.hideLoading();
+        
         // 检查返回结果的结构
         if (!res.result) {
           console.error('云函数返回结果为空');
@@ -1236,6 +1271,7 @@ Page({
         this.synthesizeAndPlay(aiReply);
       },
       fail: (error) => {
+        wx.hideLoading();
         console.error('调用云函数失败:', error);
         wx.showToast({
           title: '发送失败',
